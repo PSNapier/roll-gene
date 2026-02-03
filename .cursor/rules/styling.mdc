@@ -15,13 +15,6 @@ alwaysApply: false
 
 Use Tailwind classes that map to CSS variables. Do **not** put raw hex/hsl or one-off colours in Vue.
 
-| Use case             | Class examples                                                      | Defined in CSS as                             |
-| -------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
-| Background           | `bg-bg`, `bg-bg-dark`                                               | `--bg`, `--bg-dark`                           |
-| Text                 | `text-text`, `text-text-dark`, `text-muted`                         | `--text`, `--text-dark`, `--muted-foreground` |
-| Accents              | `bg-accent-1`, `bg-accent-2`, `text-accent-1`                       | `--accent-1`, `--accent-2`                    |
-| Cards, borders, etc. | `bg-card`, `border-border`, `bg-primary`, `text-primary-foreground` | existing theme vars                           |
-
 Add new colours as CSS variables and `@theme` entries in `app.css`; then use the corresponding Tailwind class in Vue (e.g. `--color-accent-1` → `accent-1` utility).
 
 ## Rules
