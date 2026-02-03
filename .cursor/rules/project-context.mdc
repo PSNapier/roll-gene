@@ -1,0 +1,34 @@
+---
+description: Project context — SaaS genetics rolling site with Cashier/Stripe and user dictionaries
+alwaysApply: true
+---
+
+# Roll Gene — Project Context
+
+## What This Project Is
+
+- **SaaS** — subscription/billing via **Laravel Cashier (Stripe)**. Prefer Cashier APIs for plans, subscriptions, and webhooks; avoid raw Stripe SDK for billing unless Cashier cannot cover the use case.
+- **Genetics rolling site** — core logic is **breeding rollers** and **randomizer rollers** driven by **user-populated dictionaries** (e.g. traits, genes, outcomes). Dictionaries are user-defined; rollers consume them to produce breeding/random results.
+- **Public free tier**: A set of **fully public** dictionaries/rollers with **base equine genetics** is offered as a **free service and teaser** for the custom roller. **Prompt to create an account but do not require it** — anonymous/unauthenticated users can use these public rollers. Design routes, policies, and UI so public rollers are accessible without login; show a sign-up/account prompt (e.g. CTA, modal) to encourage registration without blocking use.
+
+## Conventions
+
+- **Billing**: Use Cashier for checkout, subscriptions, and Stripe webhooks. Keep payment and subscription logic in dedicated classes/services; don’t scatter Stripe calls across controllers.
+- **Dictionaries**: Treat user dictionaries as first-class data (validation, storage, versioning). Roller/breeding logic should depend on dictionary structure and be testable with fixture dictionaries.
+- **Gene formats (breeding roller)**: The system will support **multiple gene notation formats** that users can choose from (e.g. **EE / Ee / ee** vs **EE / nE**). Implement formats as discrete options (e.g. format key or strategy); breeding logic should interpret the selected format when combining parent genes and producing offspring. Design so new formats can be added without rewriting core roller logic.
+- **Inheritance modes (breeding roller)**: Support both **realistic inheritance** (Punnett-square / Mendelian logic) and **custom/fantasy inheritance** based on **set percentages** (e.g. roll 1–100, outcome chosen by configured chance bands). Users pick the mode per roller or dictionary. Treat percentage-based inheritance as first-class: user-defined outcome ranges (e.g. 1–25 → A, 26–60 → B, 61–100 → C); roller uses a single server-side RNG and maps result to the band. Both modes must remain testable (enumeration for Punnett; for percentage mode, either enumerate all outcomes with their probabilities or support deterministic “all possible results” for given ranges).
+- **Roller logic**: Run **server-side only** — never execute rolling/breeding logic in the browser or expose it via client-side scripts. This reduces manipulation (e.g. fake rolls, tampered inputs). Keep roller/breeding algorithms in backend services so they can be unit-tested and reused (e.g. jobs, console, API).
+- **Base items**: Users can customize **base items** that **modify roller outputs**. Examples: “if dominant is possible, always pass dominant”; “change X chance from 10% to 25%”. Treat base items as first-class config (stored, validated, versioned). Roller logic must apply active base-item rules when producing results — e.g. outcome overrides, chance overrides. Design so base-item effects are applied server-side in the roller pipeline and are testable (given parents + settings + base items, output is deterministic or enumerable).
+
+## Testability (Dictionaries & Roller Logic)
+
+- **Design goal**: The dictionary + roller system must be **fully testable**. For any given parents and settings, the system must be able to produce output that **lists or enumerates all possible combinations** (e.g. all possible offspring outcomes), not only a single random result.
+- **Use this for**: Tests that assert correct combinations given fixture dictionaries; debugging; user-facing “preview all possibilities” or “test mode” when parents/settings are input.
+- **Implementation**: Roller/breeding services should support a **deterministic enumeration mode** (e.g. `getAllPossibleCombinations(parents, settings)`) in addition to a single random roll. Structure output in a stable, parseable format (e.g. array of outcome objects, or exportable table) so tests and UI can assert or display it.
+
+## Security / Complexity
+
+- **Roller execution**: Roller logic runs server-side only; the client sends inputs (parents, settings) and receives results. Do not reimplement rolling logic in frontend code.
+- Validate and sanitize dictionary content; avoid eval or arbitrary code execution from user input.
+- Enforce authorization on who can create/edit dictionaries and run rollers (per-user or per-team as your model dictates).
+- For Stripe: rely on Cashier’s webhook signature verification; never trust raw request body for payment events.

@@ -1,0 +1,32 @@
+---
+description: Styling — Tailwind in Vue, colour theme in CSS
+globs: '**/*.vue'
+alwaysApply: false
+---
+
+# Styling Conventions
+
+## Approach
+
+- **Vue files**: Use **Tailwind utility classes** for layout, spacing, typography, borders, and colours. Prefer semantic colour classes (see below) over hardcoded values.
+- **Colour theming**: Define **all colour tokens in `.css` files** (e.g. `resources/css/app.css`). Use semantic names so the site can be rethemed site-wide and/or per user without touching Vue.
+
+## Semantic colour classes (use these in Vue)
+
+Use Tailwind classes that map to CSS variables. Do **not** put raw hex/hsl or one-off colours in Vue.
+
+| Use case             | Class examples                                                      | Defined in CSS as                             |
+| -------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| Background           | `bg-bg`, `bg-bg-dark`                                               | `--bg`, `--bg-dark`                           |
+| Text                 | `text-text`, `text-text-dark`, `text-muted`                         | `--text`, `--text-dark`, `--muted-foreground` |
+| Accents              | `bg-accent-1`, `bg-accent-2`, `text-accent-1`                       | `--accent-1`, `--accent-2`                    |
+| Cards, borders, etc. | `bg-card`, `border-border`, `bg-primary`, `text-primary-foreground` | existing theme vars                           |
+
+Add new colours as CSS variables and `@theme` entries in `app.css`; then use the corresponding Tailwind class in Vue (e.g. `--color-accent-1` → `accent-1` utility).
+
+## Rules
+
+- **No** hardcoded colour values in Vue (no `bg-[#fff]`, `text-red-500` for theme colours). Use semantic classes only.
+- **No** inline styles for colours. Use Tailwind classes that reference the theme.
+- For user customization: override CSS variables (e.g. in a user-specific class or `<style>` that sets `--accent-1`, `--bg`, etc.) so Vue markup stays unchanged.
+- **No dark mode**: Dark variant/support is removed. To change the look, swap themes (e.g. named theme classes that override CSS variables) rather than toggling light/dark.
