@@ -1,7 +1,6 @@
 ---
-description: Styling — Tailwind in Vue, colour theme in CSS
-globs: '**/*.vue'
-alwaysApply: false
+description: Styling — Tailwind in Vue, colour theme in CSS, layout breakpoints
+alwaysApply: true
 ---
 
 # Styling Conventions
@@ -10,16 +9,25 @@ alwaysApply: false
 
 - **Vue files**: Use **Tailwind utility classes** for layout, spacing, typography, borders, and colours. Prefer semantic colour classes (see below) over hardcoded values.
 - **Colour theming**: Define **all colour tokens in `.css` files** (e.g. `resources/css/app.css`). Use semantic names so the site can be rethemed site-wide and/or per user without touching Vue.
+- **Styling in Vue, not JS**: Avoid applying styling in `.js`/`.ts` files (e.g. class strings, inline styles). Prefer creating `.vue` components and reusing them from JS; keep layout and appearance in templates and CSS.
 
 ## Semantic colour classes (use these in Vue)
 
-Use Tailwind classes that map to CSS variables. Do **not** put raw hex/hsl or one-off colours in Vue.
+Use Tailwind classes that map to **CSS theme variables** only. Do **not** use built-in Tailwind colour utilities (e.g. `red-500`, `neutral-800`, `blue-600`) for theme colours — use semantic tokens such as `theme-bg`, `theme-text`, `theme-accent-1`, `theme-border`, etc.
 
-Add new colours as CSS variables and `@theme` entries in `app.css`; then use the corresponding Tailwind class in Vue (e.g. `--color-accent-1` → `accent-1` utility).
+Add new colours as CSS variables and `@theme` entries in `app.css`; then use the corresponding Tailwind class in Vue (e.g. `--color-accent-1` → `theme-accent-1` utility).
+
+## Breakpoints and layout
+
+- **Desktop**: viewport ≥ 1280×720. Treat as default for multi-column and richer layouts.
+- **Mobile**: viewport &lt; 1280×720. Prefer **stacked, single-column** layout (e.g. `flex flex-col`, single-column grid, stacked sections). Use Tailwind breakpoints (e.g. `max-[1279px]:` or a custom `sm`/`md` that aligns to 1280px) so desktop gets wider layout and mobile gets the stacked layout.
 
 ## Rules
 
-- **No** hardcoded colour values in Vue (no `bg-[#fff]`, `text-red-500` for theme colours). Use semantic classes only.
+- **No** styling in `.js`/`.ts` — use Vue components for UI; reuse them from JS where layout/colours are needed.
+- **No** built-in Tailwind colour classes for theme colours; use semantic classes only (e.g. `theme-background`, `theme-text`, not `bg-white`, `text-gray-900`).
+- **No** hardcoded colour values in Vue (no `bg-[#fff]`, `text-red-500`). Use semantic classes only.
 - **No** inline styles for colours. Use Tailwind classes that reference the theme.
 - For user customization: override CSS variables (e.g. in a user-specific class or `<style>` that sets `--accent-1`, `--bg`, etc.) so Vue markup stays unchanged.
 - **No dark mode**: Dark variant/support is removed. To change the look, swap themes (e.g. named theme classes that override CSS variables) rather than toggling light/dark.
+- **Mobile first for layout**: Prefer single-column/stacked by default; add multi-column or side-by-side layout at desktop breakpoint (1280px).
