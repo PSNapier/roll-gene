@@ -112,4 +112,21 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Emails
+    |--------------------------------------------------------------------------
+    |
+    | Comma-separated list of emails that should have admin role. Users with
+    | these emails will have is_admin set to true on login.
+    |
+    */
+
+    'admin_emails' => array_values(array_filter(
+        array_map(function (string $email): string {
+            return trim($email, " \t\n\r'\"[]");
+        }, array_map('trim', explode(',', env('ADMIN_EMAILS', '')))),
+        fn (string $email): bool => $email !== '',
+    )),
+
 ];

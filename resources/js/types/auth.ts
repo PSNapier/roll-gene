@@ -6,6 +6,9 @@ export type User = {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
+    is_admin?: boolean;
+    is_super_supporter?: boolean;
+    is_premium?: boolean;
     [key: string]: unknown;
 };
 
