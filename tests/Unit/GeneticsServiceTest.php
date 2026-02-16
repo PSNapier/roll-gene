@@ -6,6 +6,28 @@ beforeEach(function () {
     $this->service = new GeneticsService;
 });
 
+function baseEquineGenetics(): array
+{
+    return [
+        'dict' => [
+            'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
+            'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
+            'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
+        ],
+        'odds' => [
+            'punnett' => ['roll1' => 25, 'roll2' => 25, 'roll3' => 25, 'roll4' => 25],
+            'percentage' => [
+                'domXdom' => ['dom' => 100],
+                'domXrec' => ['dom' => 100],
+                'domXnone' => ['rec' => 50],
+                'recXrec' => ['dom' => 50, 'rec' => 50],
+                'recXnone' => ['rec' => 50],
+                'noneXnone' => ['none' => 100],
+            ],
+        ],
+    ];
+}
+
 test('parseParentGenotype splits Ee into E and e', function () {
     $alleles = ['E', 'e'];
     expect($this->service->parseParentGenotype('Ee', $alleles))->toBe(['E', 'e']);
@@ -113,8 +135,9 @@ test('getPunnettOutcomesForGene respects custom odds', function () {
 test('getBreedingOutcomes returns all combinations with percentages summing to 100', function () {
     $sire = ['Ee', 'Aa'];
     $dam = ['Ee', 'Aa'];
+    $genetics = baseEquineGenetics();
 
-    $result = $this->service->getBreedingOutcomes($sire, $dam);
+    $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
 
     expect($result)->not->toBeEmpty();
     $totalPct = 0.0;
@@ -129,20 +152,22 @@ test('getBreedingOutcomes returns all combinations with percentages summing to 1
 test('getBreedingOutcomes genotype entries are in dictionary order', function () {
     $sire = ['Ee', 'Aa', 'nZ'];
     $dam = ['ee', 'aa', ''];
+    $genetics = baseEquineGenetics();
 
-    $result = $this->service->getBreedingOutcomes($sire, $dam);
+    $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
 
     expect($result)->not->toBeEmpty();
     $first = $result[0];
-    $dict = $this->service->getBaseDictionary();
-    expect($first['genotype'])->toHaveCount(count($dict['dict']));
+    $dict = $genetics['dict'];
+    expect($first['genotype'])->toHaveCount(count($dict));
 });
 
 test('getBreedingOutcomes includes percentage-type genes and respects percentage odds', function () {
     $sire = ['Ee', 'Aa', 'nZ'];
     $dam = ['Ee', 'Aa', 'nZ'];
+    $genetics = baseEquineGenetics();
 
-    $result = $this->service->getBreedingOutcomes($sire, $dam);
+    $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
 
     $totalPct = 0.0;
     $silverOutcomes = [];
@@ -160,11 +185,12 @@ test('getBreedingOutcomes includes percentage-type genes and respects percentage
 
 test('tokensToOrderedGenes assigns by validity so input order does not matter', function () {
     $tokens = ['aa', 'ee'];
+    $genetics = baseEquineGenetics();
+    $dict = $genetics['dict'];
 
-    $ordered = $this->service->tokensToOrderedGenes($tokens);
+    $ordered = $this->service->tokensToOrderedGenes($tokens, $dict);
 
-    $dict = $this->service->getBaseDictionary();
-    $geneNames = array_keys($dict['dict']);
+    $geneNames = array_keys($dict);
     expect($ordered)->toHaveCount(count($geneNames));
     expect($ordered[0])->toBe('ee');
     expect($ordered[1])->toBe('aa');
@@ -172,12 +198,14 @@ test('tokensToOrderedGenes assigns by validity so input order does not matter', 
 
 test('tokensToOrderedGenes assigns percentage gene token to correct slot', function () {
     $tokens = ['aa', 'ee', 'nZ'];
+    $genetics = baseEquineGenetics();
 
-    $ordered = $this->service->tokensToOrderedGenes($tokens);
+    $ordered = $this->service->tokensToOrderedGenes($tokens, $genetics['dict']);
 
     expect($ordered[2])->toBe('nZ');
 });
 
 test('tokensToOrderedGenes throws when not enough tokens', function () {
-    $this->service->tokensToOrderedGenes(['ee']);
+    $genetics = baseEquineGenetics();
+    $this->service->tokensToOrderedGenes(['ee'], $genetics['dict']);
 })->throws(InvalidArgumentException::class);

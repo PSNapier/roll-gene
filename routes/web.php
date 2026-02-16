@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\RollerController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -15,8 +16,9 @@ Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-Route::post('dashboard/roll', [DashboardController::class, 'roll'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard.roll');
+Route::get('rollers/{roller:slug}', [RollerController::class, 'show'])
+    ->name('rollers.show');
+Route::post('rollers/{roller:slug}/roll', [RollerController::class, 'roll'])
+    ->name('rollers.roll');
 
 require __DIR__.'/settings.php';

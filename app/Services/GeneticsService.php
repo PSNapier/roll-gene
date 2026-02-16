@@ -2,43 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Roller;
+
 class GeneticsService
 {
     /** @var array<string, int> Punnett square cell weights (roll1..roll4). */
     private const DEFAULT_PUNNETT_ODDS_KEYS = ['roll1', 'roll2', 'roll3', 'roll4'];
-
-    /**
-     * Default odds for Punnett (realistic) gene rolling.
-     * Each key (roll1..roll4) is the weight for one cell of the 2x2 Punnett square.
-     *
-     * @return array<string, int>
-     */
-    public function getPunnettOdds(): array
-    {
-        return [
-            'roll1' => 25,
-            'roll2' => 25,
-            'roll3' => 25,
-            'roll4' => 25,
-        ];
-    }
-
-    /**
-     * Default odds for percentage-based inheritance (dom/rec/none).
-     *
-     * @return array<string, array<string, int>>
-     */
-    public function getPercentageOdds(): array
-    {
-        return [
-            'domXdom' => ['dom' => 100],
-            'domXrec' => ['dom' => 100],
-            'domXnone' => ['rec' => 50],
-            'recXrec' => ['dom' => 50, 'rec' => 50],
-            'recXnone' => ['rec' => 50],
-            'noneXnone' => ['none' => 100],
-        ];
-    }
 
     /**
      * Classify a parent's genotype for a percentage gene as dom, rec, or none.
@@ -84,27 +53,13 @@ class GeneticsService
     }
 
     /**
-     * Base equine genetics dictionary (public free tier).
-     * Each gene has an odds type ('punnett' or 'percentage') and alleles (dominance order).
+     * Genetics data (odds + dict) for a roller.
      *
      * @return array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}
      */
-    public function getBaseDictionary(): array
+    public function getDictionaryForRoller(Roller $roller): array
     {
-        $punnett = $this->getPunnettOdds();
-        $percentage = $this->getPercentageOdds();
-
-        return [
-            'odds' => [
-                'punnett' => $punnett,
-                'percentage' => $percentage,
-            ],
-            'dict' => [
-                'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
-                'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
-                'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
-            ],
-        ];
+        return $roller->toGeneticsArray();
     }
 
     /**
@@ -177,14 +132,13 @@ class GeneticsService
      * Returns an array in dictionary order (one entry per gene).
      *
      * @param  array<string>  $tokens
+     * @param  array<string, array{oddsType: string, alleles: array<string>}>  $dict
      * @return array<int, string>
      *
      * @throws \InvalidArgumentException When assignment is impossible.
      */
-    public function tokensToOrderedGenes(array $tokens): array
+    public function tokensToOrderedGenes(array $tokens, array $dict): array
     {
-        $data = $this->getBaseDictionary();
-        $dict = $data['dict'];
         $geneNames = array_keys($dict);
 
         $punnettGeneNames = [];
@@ -342,14 +296,14 @@ class GeneticsService
      *
      * @param  array<string>  $sireGenes  One genotype per gene, in same order as dictionary keys (e.g. ['Ee', 'Aa', 'nZ']).
      * @param  array<string>  $damGenes
+     * @param  array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}  $genetics  From Roller::toGeneticsArray()
      * @return array<int, array{genotype: list<string>, probability: float, percentage: string}>
      */
-    public function getBreedingOutcomes(array $sireGenes, array $damGenes): array
+    public function getBreedingOutcomes(array $sireGenes, array $damGenes, array $genetics): array
     {
-        $data = $this->getBaseDictionary();
-        $dict = $data['dict'];
-        $punnettOdds = $data['odds']['punnett'];
-        $percentageOdds = $data['odds']['percentage'];
+        $dict = $genetics['dict'];
+        $punnettOdds = $genetics['odds']['punnett'];
+        $percentageOdds = $genetics['odds']['percentage'];
         $geneNames = array_keys($dict);
 
         $perGeneOutcomes = [];
