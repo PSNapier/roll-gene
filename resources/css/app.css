@@ -93,6 +93,15 @@
             'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
             'Noto Color Emoji';
     }
+
+    /* Semantic theme utilities (site-wide / user theming) */
+    .theme-bg { background-color: var(--bg); }
+    .theme-bg-dark { background-color: var(--bg-dark); }
+    .theme-text { color: var(--text); }
+    .theme-text-dark { color: var(--text-dark); }
+    .theme-border { border-color: var(--border); }
+    .theme-accent-1 { color: var(--accent-1); }
+    .theme-accent-2 { color: var(--accent-2); }
 }
 
 :root {
