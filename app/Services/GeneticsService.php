@@ -260,6 +260,34 @@ class GeneticsService
     }
 
     /**
+     * All possible offspring genotypes for one Punnett gene when parent(s) are unknown.
+     * Returns every two-allele combination with equal probability.
+     *
+     * @param  array<string>  $allelesOrder  Alleles in dominance order.
+     * @return array<int, array{genotype: string, probability: float}>
+     */
+    public function getAllPunnettOutcomesForGene(array $allelesOrder): array
+    {
+        $n = count($allelesOrder);
+        if ($n === 0) {
+            return [];
+        }
+        $outcomes = [];
+        $total = $n * $n;
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = 0; $j < $n; $j++) {
+                $genotype = $this->formatGenotype([$allelesOrder[$i], $allelesOrder[$j]], $allelesOrder);
+                $outcomes[] = [
+                    'genotype' => $genotype,
+                    'probability' => 1.0 / $total,
+                ];
+            }
+        }
+
+        return $outcomes;
+    }
+
+    /**
      * All possible offspring outcomes for one percentage gene, with probabilities from the odds table.
      * Sire and dam are classified as dom/rec/none; odds key is sireClass.'X'.damClass.
      *
@@ -272,7 +300,8 @@ class GeneticsService
     public function getPercentageOutcomesForGene(string $sireClass, string $damClass, array $alleles, array $percentageOdds): array
     {
         $key = $sireClass.'X'.$damClass;
-        $bands = $percentageOdds[$key] ?? ['none' => 100];
+        $reverseKey = $damClass.'X'.$sireClass;
+        $bands = $percentageOdds[$key] ?? $percentageOdds[$reverseKey] ?? ['none' => 100];
         $total = (float) array_sum($bands);
         if ($total <= 0) {
             $bands = ['none' => 100];
@@ -315,11 +344,12 @@ class GeneticsService
 
             if (($entry['oddsType'] ?? '') === 'punnett') {
                 if ($sireRaw === '' || $damRaw === '') {
-                    continue;
+                    $perGeneOutcomes[$geneName] = $this->getAllPunnettOutcomesForGene($alleles);
+                } else {
+                    $sireAlleles = $this->parseParentGenotype($sireRaw, $alleles);
+                    $damAlleles = $this->parseParentGenotype($damRaw, $alleles);
+                    $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $punnettOdds);
                 }
-                $sireAlleles = $this->parseParentGenotype($sireRaw, $alleles);
-                $damAlleles = $this->parseParentGenotype($damRaw, $alleles);
-                $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $punnettOdds);
 
                 continue;
             }

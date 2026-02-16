@@ -116,6 +116,17 @@ test('getPercentageOutcomesForGene defaults to 100% none when key missing', func
     expect($outcomes[0]['probability'])->toBe(1.0);
 });
 
+test('getPercentageOutcomesForGene uses reverse key when direct key missing', function () {
+    $odds = ['recXnone' => ['rec' => 100]];
+    $sireRecDamNone = $this->service->getPercentageOutcomesForGene('rec', 'none', ['Z'], $odds);
+    $sireNoneDamRec = $this->service->getPercentageOutcomesForGene('none', 'rec', ['Z'], $odds);
+
+    expect($sireRecDamNone)->toEqual($sireNoneDamRec);
+    expect($sireNoneDamRec)->toHaveCount(1);
+    expect($sireNoneDamRec[0]['genotype'])->toBe('nZ');
+    expect($sireNoneDamRec[0]['probability'])->toBe(1.0);
+});
+
 test('getPunnettOutcomesForGene respects custom odds', function () {
     $sire = ['E', 'e'];
     $dam = ['e', 'e'];
@@ -209,3 +220,41 @@ test('tokensToOrderedGenes throws when not enough tokens', function () {
     $genetics = baseEquineGenetics();
     $this->service->tokensToOrderedGenes(['ee'], $genetics['dict']);
 })->throws(InvalidArgumentException::class);
+
+test('getBreedingOutcomes includes all genes in dict when Punnett gene has empty parent', function () {
+    $genetics = baseEquineGenetics();
+    $sire = ['Ee', '', 'nZ'];
+    $dam = ['Ee', 'Aa', 'nZ'];
+
+    $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
+
+    expect($result)->not->toBeEmpty();
+    $dict = $genetics['dict'];
+    foreach ($result as $row) {
+        expect($row['genotype'])->toHaveCount(count($dict));
+    }
+    $totalPct = array_sum(array_column($result, 'probability'));
+    expect(round($totalPct, 10))->toBe(1.0);
+});
+
+test('getBreedingOutcomes with extended dict returns one genotype entry per gene', function () {
+    $genetics = [
+        'dict' => [
+            'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
+            'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
+            'dun' => ['oddsType' => 'punnett', 'alleles' => ['D', 'd']],
+            'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
+        ],
+        'odds' => baseEquineGenetics()['odds'],
+    ];
+    $sire = ['Ee', 'Aa', 'Dd', 'nZ'];
+    $dam = ['ee', 'aa', 'Dd', 'ZZ'];
+
+    $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
+
+    expect($result)->not->toBeEmpty();
+    $geneCount = count($genetics['dict']);
+    foreach ($result as $row) {
+        expect($row['genotype'])->toHaveCount($geneCount);
+    }
+});

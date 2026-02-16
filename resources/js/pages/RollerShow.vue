@@ -54,7 +54,10 @@ const editGenes = ref<EditGeneRow[]>([]);
 let nextGeneId = 0;
 
 function syncEditGenesFromProps(): void {
-    const dict = JSON.parse(JSON.stringify(props.genetics.dict)) as Record<string, GeneEntry>;
+    const dict = JSON.parse(JSON.stringify(props.genetics.dict)) as Record<
+        string,
+        GeneEntry
+    >;
     editGenes.value = Object.entries(dict).map(([name, entry]) => ({
         id: nextGeneId++,
         name,
@@ -81,7 +84,10 @@ useSortable(genesTbodyRef, editGenes, {
     ghostClass: 'opacity-50',
 } as UseSortableOptions);
 
-function setOddsType(rowIndex: number, oddsType: 'punnett' | 'percentage'): void {
+function setOddsType(
+    rowIndex: number,
+    oddsType: 'punnett' | 'percentage',
+): void {
     const row = editGenes.value[rowIndex];
     if (!row) return;
     row.entry.oddsType = oddsType;
@@ -100,7 +106,9 @@ function addAllele(rowIndex: number): void {
 function removeAllele(rowIndex: number, alleleIndex: number): void {
     const row = editGenes.value[rowIndex];
     if (row?.entry.oddsType === 'punnett' && row.entry.alleles.length > 1) {
-        row.entry.alleles = row.entry.alleles.filter((_, i) => i !== alleleIndex);
+        row.entry.alleles = row.entry.alleles.filter(
+            (_, i) => i !== alleleIndex,
+        );
     }
 }
 
@@ -134,12 +142,16 @@ function saveDict(): void {
         dict[name] = e;
     }
     savingDict.value = true;
-    router.patch(rollerUpdate.url({ roller: props.roller.slug }), { dictionary: dict }, {
-        preserveScroll: true,
-        onFinish: () => {
-            savingDict.value = false;
+    router.patch(
+        rollerUpdate.url({ roller: props.roller.slug }),
+        { dictionary: dict },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                savingDict.value = false;
+            },
         },
-    });
+    );
 }
 
 /** Rows for the table: editGenes when canEdit, else from props. */
@@ -519,16 +531,20 @@ function doRoll(): void {
                                     v-if="props.canEdit"
                                     v-model="row.entry.oddsType"
                                     class="theme-border theme-bg theme-text h-9 rounded border px-2 text-sm"
-                                    @change="
-                                        setOddsType(i, row.entry.oddsType)
-                                    "
+                                    @change="setOddsType(i, row.entry.oddsType)"
                                 >
                                     <option value="punnett">Punnett</option>
                                     <option value="percentage">Percent</option>
                                 </select>
-                                <span v-else class="theme-text-dark capitalize">{{
-                                    row.entry.oddsType === 'percentage' ? 'percent' : row.entry.oddsType
-                                }}</span>
+                                <span
+                                    v-else
+                                    class="theme-text-dark capitalize"
+                                    >{{
+                                        row.entry.oddsType === 'percentage'
+                                            ? 'percent'
+                                            : row.entry.oddsType
+                                    }}</span
+                                >
                             </td>
                             <td class="px-3 py-2">
                                 <template v-if="props.canEdit">
@@ -551,10 +567,7 @@ function doRoll(): void {
                                             Add
                                         </button>
                                     </PunnettAllelesEditor>
-                                    <div
-                                        v-else
-                                        class="flex items-center gap-2"
-                                    >
+                                    <div v-else class="flex items-center gap-2">
                                         <div
                                             class="theme-border flex h-9 w-16 min-w-0 items-center rounded border bg-transparent px-2"
                                         >
@@ -568,7 +581,9 @@ function doRoll(): void {
                                             v-if="row.entry.alleles[0]?.trim()"
                                             class="theme-text-dark text-sm"
                                         >
-                                            {{ row.entry.alleles[0].trim() }}{{ row.entry.alleles[0].trim() }}, n{{ row.entry.alleles[0].trim() }}
+                                            {{ row.entry.alleles[0].trim()
+                                            }}{{ row.entry.alleles[0].trim() }},
+                                            n{{ row.entry.alleles[0].trim() }}
                                         </span>
                                         <span
                                             v-else
