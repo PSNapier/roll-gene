@@ -109,3 +109,19 @@ test('getBreedingOutcomes skips percentage-type genes', function () {
         expect($row['genotype'])->toHaveCount(2);
     }
 });
+
+test('tokensToOrderedGenes assigns by validity so input order does not matter', function () {
+    $tokens = ['aa', 'ee'];
+
+    $ordered = $this->service->tokensToOrderedGenes($tokens);
+
+    $dict = $this->service->getBaseDictionary();
+    $geneNames = array_keys($dict['dict']);
+    expect($ordered)->toHaveCount(count($geneNames));
+    expect($ordered[0])->toBe('ee');
+    expect($ordered[1])->toBe('aa');
+});
+
+test('tokensToOrderedGenes throws when not enough tokens', function () {
+    $this->service->tokensToOrderedGenes(['ee']);
+})->throws(InvalidArgumentException::class);

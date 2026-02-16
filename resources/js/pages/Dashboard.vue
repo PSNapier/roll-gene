@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { TriangleAlert } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -39,15 +40,86 @@ function parseGeneString(raw: string): string[] {
         .filter(Boolean);
 }
 
+/** Check if genotype string is two valid alleles (longest-first match, mirrors backend). */
+function isValidGenotype(genotype: string, alleles: string[]): boolean {
+    const g = genotype.trim();
+    if (!g) return false;
+    const byLength = [...alleles].sort((a, b) => b.length - a.length);
+    for (const first of byLength) {
+        if (g.startsWith(first)) {
+            const remainder = g.slice(first.length);
+            for (const second of byLength) {
+                if (remainder === second) return true;
+            }
+        }
+    }
+    return false;
+}
+
 const sireGenesRaw = ref('Ee Aa nZ');
 const damGenesRaw = ref('Ee Aa nZ');
 
 const sireGenes = computed(() => parseGeneString(sireGenesRaw.value));
 const damGenes = computed(() => parseGeneString(damGenesRaw.value));
 
+const geneNames = computed(() => Object.keys(props.genetics.dict));
+
+const baseGeneNames = computed(() =>
+    geneNames.value.filter((name) => props.genetics.dict[name].oddsType === 'base'),
+);
+
+function assignTokensToGenes(
+    tokens: string[],
+    dict: Record<string, GeneEntry>,
+): { warnings: string[] } {
+    const warnings: string[] = [];
+    const used = new Set<number>();
+
+    for (const name of baseGeneNames.value) {
+        const alleles = dict[name].alleles;
+        let found = -1;
+        for (let j = 0; j < tokens.length; j++) {
+            if (used.has(j)) continue;
+            if (isValidGenotype(tokens[j], alleles)) {
+                found = j;
+                break;
+            }
+        }
+        if (found >= 0) {
+            used.add(found);
+        } else {
+            warnings.push(`Missing value for ${name} (expected two alleles: ${alleles.join(', ')})`);
+        }
+    }
+
+    for (let j = 0; j < tokens.length; j++) {
+        if (!used.has(j)) {
+            warnings.push(`Unrecognized genotype: "${tokens[j]}"`);
+        }
+    }
+
+    return { warnings };
+}
+
+const validationWarnings = computed(() => {
+    const dict = props.genetics.dict;
+    const sire = sireGenes.value;
+    const dam = damGenes.value;
+
+    const sireResult = assignTokensToGenes(sire, dict);
+    const damResult = assignTokensToGenes(dam, dict);
+
+    return { sire: sireResult.warnings, dam: damResult.warnings };
+});
+
+const hasValidationWarnings = computed(
+    () => validationWarnings.value.sire.length > 0 || validationWarnings.value.dam.length > 0,
+);
+
 const geneFormatPlaceholder = 'e.g. ee/aa/nZ or ee, aa, nZ';
 
 const rolling = ref(false);
+const canRoll = computed(() => !rolling.value && !hasValidationWarnings.value);
 
 function doRoll(): void {
     rolling.value = true;
@@ -84,6 +156,26 @@ function doRoll(): void {
                             :placeholder="geneFormatPlaceholder"
                         />
                         <span v-if="sireGenes.length" class="text-xs theme-text-dark">Parsed: {{ sireGenes.join(', ') }}</span>
+                        <div
+                            v-if="validationWarnings.sire.length"
+                            class="mt-2 flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-sm text-destructive"
+                        >
+                            <div class="flex items-center gap-1.5 font-medium">
+                                <TriangleAlert class="size-4 shrink-0" />
+                                <span>Warning:</span>
+                            </div>
+                            <ul class="list-inside list-disc">
+                                <li
+                                    v-for="(msg, idx) in validationWarnings.sire"
+                                    :key="idx"
+                                >
+                                    {{ msg }}
+                                </li>
+                            </ul>
+                        </div>
+                        <p v-if="props.errors?.sire_genes" class="mt-1 text-sm text-destructive">
+                            {{ props.errors.sire_genes }}
+                        </p>
                     </div>
                     <div class="flex flex-col gap-1.5">
                         <label for="dam-genes" class="text-sm font-medium theme-text">Dam</label>
@@ -95,20 +187,37 @@ function doRoll(): void {
                             :placeholder="geneFormatPlaceholder"
                         />
                         <span v-if="damGenes.length" class="text-xs theme-text-dark">Parsed: {{ damGenes.join(', ') }}</span>
+                        <div
+                            v-if="validationWarnings.dam.length"
+                            class="mt-2 flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-sm text-destructive"
+                        >
+                            <div class="flex items-center gap-1.5 font-medium">
+                                <TriangleAlert class="size-4 shrink-0" />
+                                <span>Warning:</span>
+                            </div>
+                            <ul class="list-inside list-disc">
+                                <li
+                                    v-for="(msg, idx) in validationWarnings.dam"
+                                    :key="idx"
+                                >
+                                    {{ msg }}
+                                </li>
+                            </ul>
+                        </div>
+                        <p v-if="props.errors?.dam_genes" class="mt-1 text-sm text-destructive">
+                            {{ props.errors.dam_genes }}
+                        </p>
                     </div>
                 </div>
                 <div class="mt-4 flex flex-col items-end gap-2">
                     <button
                         type="button"
                         class="w-fit rounded-md border theme-border theme-bg-dark px-4 py-2 text-sm font-medium theme-text hover:opacity-90 disabled:opacity-50"
-                        :disabled="rolling"
+                        :disabled="!canRoll"
                         @click="doRoll"
                     >
                         {{ rolling ? 'Rolling…' : 'Roll' }}
                     </button>
-                    <p v-if="props.errors?.sire_genes" class="text-sm text-destructive">
-                        {{ props.errors.sire_genes }}
-                    </p>
                 </div>
             </section>
 

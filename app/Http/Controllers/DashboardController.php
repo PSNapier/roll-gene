@@ -28,16 +28,26 @@ class DashboardController extends Controller
             'dam_genes' => ['required', 'string'],
         ]);
 
-        $sire = $this->parseGeneString($validated['sire_genes']);
-        $dam = $this->parseGeneString($validated['dam_genes']);
+        $sireTokens = $this->parseGeneString($validated['sire_genes']);
+        $damTokens = $this->parseGeneString($validated['dam_genes']);
 
         try {
-            $outcomes = $this->geneticsService->getBreedingOutcomes($sire, $dam);
+            $sire = $this->geneticsService->tokensToOrderedGenes($sireTokens);
         } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
                 'sire_genes' => [$e->getMessage()],
             ]);
         }
+
+        try {
+            $dam = $this->geneticsService->tokensToOrderedGenes($damTokens);
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages([
+                'dam_genes' => [$e->getMessage()],
+            ]);
+        }
+
+        $outcomes = $this->geneticsService->getBreedingOutcomes($sire, $dam);
 
         return Inertia::render('Dashboard', [
             'genetics' => $this->geneticsService->getBaseDictionary(),

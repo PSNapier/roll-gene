@@ -97,6 +97,82 @@ class GeneticsService
     }
 
     /**
+     * Check if a genotype string is valid for the given alleles (two alleles, longest-first match).
+     *
+     * @param  array<string>  $alleles
+     */
+    public function isValidGenotype(string $genotype, array $alleles): bool
+    {
+        try {
+            $this->parseParentGenotype($genotype, $alleles);
+
+            return true;
+        } catch (\InvalidArgumentException) {
+            return false;
+        }
+    }
+
+    /**
+     * Assign tokens to genes by validity; order of input does not matter.
+     * Returns an array in dictionary order (one entry per gene).
+     *
+     * @param  array<string>  $tokens
+     * @return array<int, string>
+     *
+     * @throws \InvalidArgumentException When assignment is impossible.
+     */
+    public function tokensToOrderedGenes(array $tokens): array
+    {
+        $data = $this->getBaseDictionary();
+        $dict = $data['dict'];
+        $geneNames = array_keys($dict);
+
+        $baseGeneNames = [];
+        foreach ($geneNames as $name) {
+            if (($dict[$name]['oddsType'] ?? '') === 'base') {
+                $baseGeneNames[] = $name;
+            }
+        }
+
+        if (count($tokens) < count($baseGeneNames)) {
+            throw new \InvalidArgumentException(
+                'Not enough gene values: need '.count($baseGeneNames).' (for '.implode(', ', $baseGeneNames).'), got '.count($tokens).'.'
+            );
+        }
+
+        $used = array_fill(0, count($tokens), false);
+        $assignment = [];
+
+        foreach ($baseGeneNames as $geneName) {
+            $alleles = $dict[$geneName]['alleles'];
+            $found = null;
+            foreach ($tokens as $j => $token) {
+                if ($used[$j]) {
+                    continue;
+                }
+                if ($this->isValidGenotype($token, $alleles)) {
+                    $found = $j;
+                    break;
+                }
+            }
+            if ($found === null) {
+                throw new \InvalidArgumentException(
+                    'No valid value for gene "'.$geneName.'" (expected two alleles from ['.implode(', ', $alleles).']).'
+                );
+            }
+            $used[$found] = true;
+            $assignment[$geneName] = $tokens[$found];
+        }
+
+        $result = [];
+        foreach ($geneNames as $name) {
+            $result[] = $assignment[$name] ?? '';
+        }
+
+        return $result;
+    }
+
+    /**
      * Format two alleles as a single genotype string in dominance order.
      *
      * @param  array{0: string, 1: string}  $allelePair

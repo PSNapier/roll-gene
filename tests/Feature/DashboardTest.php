@@ -43,3 +43,20 @@ test('authenticated users can roll breeding outcomes', function () {
         ->where('outcomes', fn ($outcomes) => count($outcomes) > 0 && isset($outcomes[0]['genotype'], $outcomes[0]['percentage']))
     );
 });
+
+test('gene input order does not matter for roll', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $response = $this->post(route('dashboard.roll'), [
+        'sire_genes' => 'aa ee',
+        'dam_genes' => 'ee aa',
+    ]);
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Dashboard')
+        ->has('outcomes')
+        ->where('outcomes', fn ($outcomes) => count($outcomes) > 0)
+    );
+});
