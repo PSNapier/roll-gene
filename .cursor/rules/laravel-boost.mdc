@@ -254,6 +254,7 @@ Wayfinder generates TypeScript functions for Laravel routes. Import from `@/acti
 - Parameter Binding: Detects route keys (`{post:slug}`) — `show({ slug: "my-post" })`.
 - Query Merging: `show(1, { mergeQuery: { page: 2, sort: null } })` merges with current URL, `null` removes params.
 - Inertia: Use `.form()` with `<Form>` component or `form.submit(store())` with useForm.
+- **Form variants**: This project uses Wayfinder form variants (e.g. `Controller.update.form()`). When running `php artisan wayfinder:generate` manually or from a script, always pass `--with-form --no-interaction` so generated actions include `.form()`. Prefer the composer script `composer run wayfinder` if defined; otherwise run `php artisan wayfinder:generate --with-form --no-interaction`.
 
 === pint/core rules ===
 
