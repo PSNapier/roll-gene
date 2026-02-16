@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\GeneticsService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -14,14 +15,15 @@ class DashboardController extends Controller
         private GeneticsService $geneticsService
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         return Inertia::render('Dashboard', [
             'genetics' => $this->geneticsService->getBaseDictionary(),
+            'outcomes' => $request->session()->get('outcomes'),
         ]);
     }
 
-    public function roll(Request $request): Response
+    public function roll(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'sire_genes' => ['required', 'string'],
@@ -49,10 +51,7 @@ class DashboardController extends Controller
 
         $outcomes = $this->geneticsService->getBreedingOutcomes($sire, $dam);
 
-        return Inertia::render('Dashboard', [
-            'genetics' => $this->geneticsService->getBaseDictionary(),
-            'outcomes' => $outcomes,
-        ]);
+        return redirect()->route('dashboard')->with('outcomes', $outcomes);
     }
 
     private function parseGeneString(string $raw): array

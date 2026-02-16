@@ -35,6 +35,9 @@ test('authenticated users can roll breeding outcomes', function () {
         'dam_genes' => 'Ee Aa',
     ]);
 
+    $response->assertRedirect(route('dashboard'));
+
+    $response = $this->get(route('dashboard'));
     $response->assertOk();
     $response->assertInertia(fn (Assert $page) => $page
         ->component('Dashboard')
@@ -53,6 +56,9 @@ test('gene input order does not matter for roll', function () {
         'dam_genes' => 'ee aa',
     ]);
 
+    $response->assertRedirect(route('dashboard'));
+
+    $response = $this->get(route('dashboard'));
     $response->assertOk();
     $response->assertInertia(fn (Assert $page) => $page
         ->component('Dashboard')

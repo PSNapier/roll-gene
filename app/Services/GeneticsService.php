@@ -36,7 +36,51 @@ class GeneticsService
             'domXnone' => ['rec' => 50],
             'recXrec' => ['dom' => 50, 'rec' => 50],
             'recXnone' => ['rec' => 50],
+            'noneXnone' => ['none' => 100],
         ];
+    }
+
+    /**
+     * Classify a parent's genotype for a percentage gene as dom, rec, or none.
+     * Single allele (e.g. 'Z') → dom = ZZ, rec = nZ, none = absent/empty.
+     *
+     * @param  array<string>  $alleles  One allele for percentage genes (e.g. ['Z']).
+     * @return 'dom'|'rec'|'none'
+     */
+    public function classifyPercentageParent(string $genotype, array $alleles): string
+    {
+        $genotype = trim($genotype);
+        if ($genotype === '') {
+            return 'none';
+        }
+        $a = $alleles[0];
+        $dom = $a.$a;
+        $rec = 'n'.$a;
+        if ($genotype === $dom) {
+            return 'dom';
+        }
+        if ($genotype === $rec) {
+            return 'rec';
+        }
+
+        throw new \InvalidArgumentException("Genotype \"{$genotype}\" is not valid for percentage gene (expected {$dom}, {$rec}, or empty).");
+    }
+
+    /**
+     * Map a percentage outcome (dom/rec/none) to genotype string for the given allele.
+     *
+     * @param  array<string>  $alleles  One allele (e.g. ['Z']).
+     */
+    public function percentageOutcomeToGenotype(string $outcome, array $alleles): string
+    {
+        $a = $alleles[0];
+
+        return match ($outcome) {
+            'dom' => $a.$a,
+            'rec' => 'n'.$a,
+            'none' => '',
+            default => throw new \InvalidArgumentException("Invalid percentage outcome: {$outcome}."),
+        };
     }
 
     /**
@@ -113,6 +157,22 @@ class GeneticsService
     }
 
     /**
+     * Check if a genotype is valid for a percentage gene (dom=AA, rec=nA, none=empty).
+     *
+     * @param  array<string>  $alleles  One allele (e.g. ['Z']).
+     */
+    public function isValidPercentageGenotype(string $genotype, array $alleles): bool
+    {
+        $genotype = trim($genotype);
+        if ($alleles === []) {
+            return false;
+        }
+        $a = $alleles[0];
+
+        return $genotype === '' || $genotype === $a.$a || $genotype === 'n'.$a;
+    }
+
+    /**
      * Assign tokens to genes by validity; order of input does not matter.
      * Returns an array in dictionary order (one entry per gene).
      *
@@ -162,6 +222,23 @@ class GeneticsService
             }
             $used[$found] = true;
             $assignment[$geneName] = $tokens[$found];
+        }
+
+        foreach ($geneNames as $geneName) {
+            if (($dict[$geneName]['oddsType'] ?? '') !== 'percentage') {
+                continue;
+            }
+            $alleles = $dict[$geneName]['alleles'];
+            foreach ($tokens as $j => $token) {
+                if ($used[$j]) {
+                    continue;
+                }
+                if ($this->isValidPercentageGenotype($token, $alleles)) {
+                    $used[$j] = true;
+                    $assignment[$geneName] = $token;
+                    break;
+                }
+            }
         }
 
         $result = [];
@@ -229,8 +306,39 @@ class GeneticsService
     }
 
     /**
+     * All possible offspring outcomes for one percentage gene, with probabilities from the odds table.
+     * Sire and dam are classified as dom/rec/none; odds key is sireClass.'X'.damClass.
+     *
+     * @param  'dom'|'rec'|'none'  $sireClass
+     * @param  'dom'|'rec'|'none'  $damClass
+     * @param  array<string>  $alleles  One allele (e.g. ['Z']).
+     * @param  array<string, array<string, int>>  $percentageOdds
+     * @return array<int, array{genotype: string, probability: float}>
+     */
+    public function getPercentageOutcomesForGene(string $sireClass, string $damClass, array $alleles, array $percentageOdds): array
+    {
+        $key = $sireClass.'X'.$damClass;
+        $bands = $percentageOdds[$key] ?? ['none' => 100];
+        $total = (float) array_sum($bands);
+        if ($total <= 0) {
+            $bands = ['none' => 100];
+            $total = 100.0;
+        }
+
+        $outcomes = [];
+        foreach ($bands as $outcome => $weight) {
+            $outcomes[] = [
+                'genotype' => $this->percentageOutcomeToGenotype($outcome, $alleles),
+                'probability' => $weight / $total,
+            ];
+        }
+
+        return $outcomes;
+    }
+
+    /**
      * Enumerate all possible offspring combinations from sire and dam gene strings, with probabilities as percentages.
-     * Only base (Punnett) genes are considered; percentage-type genes are skipped.
+     * Base genes use Punnett odds; percentage genes use the configured percentage odds (dom/rec/none).
      *
      * @param  array<string>  $sireGenes  One genotype per gene, in same order as dictionary keys (e.g. ['Ee', 'Aa', 'nZ']).
      * @param  array<string>  $damGenes
@@ -241,23 +349,32 @@ class GeneticsService
         $data = $this->getBaseDictionary();
         $dict = $data['dict'];
         $baseOdds = $data['odds']['base'];
+        $percentageOdds = $data['odds']['percentage'];
         $geneNames = array_keys($dict);
 
         $perGeneOutcomes = [];
         foreach ($geneNames as $index => $geneName) {
             $entry = $dict[$geneName];
-            if (($entry['oddsType'] ?? '') !== 'base') {
-                continue;
-            }
             $alleles = $entry['alleles'];
-            $sireRaw = $sireGenes[$index] ?? '';
-            $damRaw = $damGenes[$index] ?? '';
-            if ($sireRaw === '' || $damRaw === '') {
+            $sireRaw = trim($sireGenes[$index] ?? '');
+            $damRaw = trim($damGenes[$index] ?? '');
+
+            if (($entry['oddsType'] ?? '') === 'base') {
+                if ($sireRaw === '' || $damRaw === '') {
+                    continue;
+                }
+                $sireAlleles = $this->parseParentGenotype($sireRaw, $alleles);
+                $damAlleles = $this->parseParentGenotype($damRaw, $alleles);
+                $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $baseOdds);
+
                 continue;
             }
-            $sireAlleles = $this->parseParentGenotype($sireRaw, $alleles);
-            $damAlleles = $this->parseParentGenotype($damRaw, $alleles);
-            $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $baseOdds);
+
+            if (($entry['oddsType'] ?? '') === 'percentage') {
+                $sireClass = $this->classifyPercentageParent($sireRaw, $alleles);
+                $damClass = $this->classifyPercentageParent($damRaw, $alleles);
+                $perGeneOutcomes[$geneName] = $this->getPercentageOutcomesForGene($sireClass, $damClass, $alleles, $percentageOdds);
+            }
         }
 
         if ($perGeneOutcomes === []) {
