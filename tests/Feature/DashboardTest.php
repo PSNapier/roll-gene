@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -13,4 +14,32 @@ test('authenticated users can visit the dashboard', function () {
 
     $response = $this->get(route('dashboard'));
     $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Dashboard')
+        ->has('genetics', fn (Assert $page) => $page
+            ->has('odds')
+            ->has('dict')
+            ->where('dict.black.oddsType', 'base')
+            ->where('dict.black.alleles', ['E', 'e'])
+            ->where('dict.silver.oddsType', 'percentage')
+        )
+    );
+});
+
+test('authenticated users can roll breeding outcomes', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $response = $this->post(route('dashboard.roll'), [
+        'sire_genes' => 'Ee Aa',
+        'dam_genes' => 'Ee Aa',
+    ]);
+
+    $response->assertOk();
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Dashboard')
+        ->has('genetics')
+        ->has('outcomes')
+        ->where('outcomes', fn ($outcomes) => count($outcomes) > 0 && isset($outcomes[0]['genotype'], $outcomes[0]['percentage']))
+    );
 });
