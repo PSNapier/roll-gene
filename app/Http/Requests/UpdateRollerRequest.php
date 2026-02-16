@@ -21,11 +21,16 @@ class UpdateRollerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'dictionary' => ['required', 'array'],
+            'dictionary' => ['sometimes', 'required', 'array'],
             'dictionary.*' => ['required', 'array'],
             'dictionary.*.oddsType' => ['required', Rule::in(['punnett', 'percentage'])],
             'dictionary.*.alleles' => ['required', 'array', 'min:1'],
             'dictionary.*.alleles.*' => ['required', 'string', 'max:64'],
+            'phenos' => ['sometimes', 'array'],
+            'phenos.*' => ['required', 'array'],
+            'phenos.*.name' => ['required', 'string', 'max:255'],
+            'phenos.*.alleles' => ['required', 'array', 'min:1'],
+            'phenos.*.alleles.*' => ['required', 'string', 'max:64'],
         ];
     }
 
@@ -36,6 +41,9 @@ class UpdateRollerRequest extends FormRequest
     {
         $validator->after(function ($validator): void {
             $dict = $this->input('dictionary', []);
+            if (! is_array($dict)) {
+                return;
+            }
             foreach ($dict as $geneName => $entry) {
                 $alleles = $entry['alleles'] ?? [];
                 if (($entry['oddsType'] ?? '') === 'percentage' && count($alleles) !== 1) {

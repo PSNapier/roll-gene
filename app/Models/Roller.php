@@ -17,6 +17,7 @@ class Roller extends Model
         'slug',
         'is_core',
         'dictionary',
+        'phenos',
         'punnett_odds',
         'percentage_odds',
         'visibility',
@@ -28,6 +29,7 @@ class Roller extends Model
         return [
             'is_core' => 'boolean',
             'dictionary' => 'array',
+            'phenos' => 'array',
             'punnett_odds' => 'array',
             'percentage_odds' => 'array',
         ];

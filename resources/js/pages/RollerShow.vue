@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RequestPayload } from '@inertiajs/core';
 import { Head, router } from '@inertiajs/vue3';
 import { useSortable } from '@vueuse/integrations/useSortable';
 import type { UseSortableOptions } from '@vueuse/integrations/useSortable';
@@ -41,9 +42,15 @@ interface RollerInfo {
     is_core: boolean;
 }
 
+interface PhenoEntry {
+    name: string;
+    alleles: string[];
+}
+
 const props = defineProps<{
     roller: RollerInfo;
     genetics: GeneticsData;
+    phenos?: PhenoEntry[];
     canEdit?: boolean;
     outcomes?: BreedingOutcome[];
     errors?: Record<string, string>;
@@ -127,6 +134,91 @@ function removeGene(rowIndex: number): void {
     editGenes.value = editGenes.value.filter((_, i) => i !== rowIndex);
 }
 
+/** Pheno Reader: editable rows synced from props. */
+interface EditPhenoRow extends PhenoEntry {
+    id: number | string;
+}
+const editPhenos = ref<EditPhenoRow[]>([]);
+let nextPhenoId = 0;
+
+function syncEditPhenosFromProps(): void {
+    const list = (props.phenos ?? []) as PhenoEntry[];
+    editPhenos.value = list.map((p) => ({
+        id: nextPhenoId++,
+        name: p.name,
+        alleles: [...(p.alleles ?? [])],
+    }));
+}
+
+onMounted(syncEditPhenosFromProps);
+watch(
+    () => props.phenos,
+    () => syncEditPhenosFromProps(),
+    { deep: true },
+);
+
+const phenosTbodyRef = ref<HTMLElement | null>(null);
+useSortable(phenosTbodyRef, editPhenos, {
+    handle: '.pheno-drag-handle',
+    animation: 150,
+    ghostClass: 'opacity-50',
+} as UseSortableOptions);
+
+function addPheno(): void {
+    editPhenos.value = [
+        ...editPhenos.value,
+        { id: nextPhenoId++, name: '', alleles: [''] },
+    ];
+}
+
+function removePheno(rowIndex: number): void {
+    editPhenos.value = editPhenos.value.filter((_, i) => i !== rowIndex);
+}
+
+function addPhenoAllele(rowIndex: number): void {
+    const row = editPhenos.value[rowIndex];
+    if (row) row.alleles = [...row.alleles, ''];
+}
+
+function removePhenoAllele(rowIndex: number, alleleIndex: number): void {
+    const row = editPhenos.value[rowIndex];
+    if (row && row.alleles.length > 1) {
+        row.alleles = row.alleles.filter((_, i) => i !== alleleIndex);
+    }
+}
+
+const savingPhenos = ref(false);
+function savePhenos(): void {
+    const list: PhenoEntry[] = editPhenos.value.map((p) => {
+        const alleles = p.alleles.map((a) => a.trim()).filter(Boolean);
+        return {
+            name: p.name.trim() || `pheno_${p.id}`,
+            alleles: alleles.length ? alleles : [''],
+        };
+    });
+    savingPhenos.value = true;
+    router.patch(
+        rollerUpdate.url({ roller: props.roller.slug }),
+        { phenos: list } as unknown as RequestPayload,
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                savingPhenos.value = false;
+            },
+        },
+    );
+}
+
+const phenosTableRows = computed(() =>
+    props.canEdit
+        ? editPhenos.value
+        : (props.phenos ?? []).map((p: PhenoEntry, i: number) => ({
+              id: i,
+              name: p.name,
+              alleles: p.alleles ?? [],
+          })),
+);
+
 const savingDict = ref(false);
 function saveDict(): void {
     const dict: Record<string, GeneEntry> = {};
@@ -144,7 +236,7 @@ function saveDict(): void {
     savingDict.value = true;
     router.patch(
         rollerUpdate.url({ roller: props.roller.slug }),
-        { dictionary: dict },
+        { dictionary: dict } as unknown as RequestPayload,
         {
             preserveScroll: true,
             onFinish: () => {
@@ -282,6 +374,31 @@ const geneFormatPlaceholder = 'e.g. ee/aa/nZ or ee, aa, nZ';
 
 const rolling = ref(false);
 const canRoll = computed(() => !rolling.value && !hasValidationWarnings.value);
+
+/**
+ * First-match-wins by pheno order (dominance). Pheno matches if every genotype
+ * token is in the pheno's allowed-alleles list (e.g. Ee, EE, AA, Aa matches Ee Aa or EE Aa).
+ */
+function getMatchingPhenos(genotype: string[]): string[] {
+    const phenos = props.phenos ?? [];
+    const allowedSet = (alleles: string[]) =>
+        new Set(
+            (alleles ?? []).filter(Boolean).map((a) => a.trim()),
+        );
+    for (const p of phenos) {
+        const set = allowedSet(p.alleles);
+        if (set.size === 0) continue;
+        const everyTokenAllowed = genotype.every((token) =>
+            set.has(token.trim()),
+        );
+        if (everyTokenAllowed) return [p.name];
+    }
+    return [];
+}
+
+const matchingPhenosByOutcome = computed(() =>
+    (props.outcomes ?? []).map((row) => getMatchingPhenos(row.genotype)),
+);
 
 function doRoll(): void {
     rolling.value = true;
@@ -459,7 +576,13 @@ function doRoll(): void {
                             <td
                                 class="theme-text px-3 py-2 font-medium whitespace-nowrap"
                             >
-                                {{ row.genotype.join(' ') }}
+                                <div>{{ row.genotype.join(' ') }}</div>
+                                <div
+                                    v-if="matchingPhenosByOutcome[i]?.length"
+                                    class="theme-text-dark mt-0.5 text-xs"
+                                >
+                                    {{ matchingPhenosByOutcome[i].join(', ') }}
+                                </div>
                             </td>
                             <td class="theme-text-dark px-3 py-2 text-left">
                                 {{ row.percentage }}%
@@ -631,6 +754,147 @@ function doRoll(): void {
                         @click="saveDict"
                     >
                         {{ savingDict ? 'Saving…' : 'Save genes' }}
+                    </button>
+                </div>
+            </section>
+
+            <section class="theme-border rounded-lg border bg-transparent p-4">
+                <h2 class="theme-text-dark mb-3 text-lg font-medium">
+                    Pheno Reader
+                </h2>
+                <p class="theme-text-dark mb-3 text-sm">
+                    Order = dominance (first match wins). List allowed genotype
+                    values per gene (e.g. Ee, EE, AA, Aa). A genotype matches if
+                    every token is in that list; only the top matching pheno is
+                    shown.
+                </p>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="theme-text-dark theme-border border-b">
+                            <th
+                                v-if="canEdit"
+                                class="theme-text w-8 px-1 py-2"
+                                aria-label="Drag to reorder"
+                            ></th>
+                            <th
+                                class="theme-text px-3 py-2 text-left font-medium"
+                            >
+                                Pheno name
+                            </th>
+                            <th
+                                class="theme-text px-3 py-2 text-left font-medium"
+                            >
+                                Allowed genotype values
+                            </th>
+                            <th
+                                v-if="canEdit"
+                                class="theme-text w-8 px-1 py-2"
+                                aria-label="Remove pheno"
+                            ></th>
+                        </tr>
+                    </thead>
+                    <tbody ref="phenosTbodyRef">
+                        <tr
+                            v-for="(row, i) in phenosTableRows"
+                            :key="row.id"
+                            class="theme-text theme-border border-b last:border-b-0 even:bg-muted"
+                        >
+                            <td v-if="canEdit" class="px-1 py-2">
+                                <span
+                                    class="pheno-drag-handle theme-text-dark cursor-grab touch-none p-1 active:cursor-grabbing"
+                                    aria-label="Drag to reorder pheno"
+                                >
+                                    <GripVertical class="size-4" />
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 font-medium">
+                                <Input
+                                    v-if="canEdit"
+                                    v-model="row.name"
+                                    class="theme-text h-8 w-28 text-sm capitalize"
+                                    placeholder="e.g. black"
+                                />
+                                <span v-else class="capitalize">{{
+                                    row.name
+                                }}</span>
+                            </td>
+                            <td class="px-3 py-2">
+                                <template v-if="canEdit">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <template
+                                            v-for="(allele, aIdx) in row.alleles"
+                                            :key="aIdx"
+                                        >
+                                            <div
+                                                class="theme-border flex h-9 min-w-0 items-center rounded border bg-transparent px-2"
+                                            >
+                                                <Input
+                                                    v-model="row.alleles[aIdx]"
+                                                    class="theme-text w-14 min-w-0 border-0 bg-transparent py-1 text-sm shadow-none focus-visible:ring-0"
+                                                    placeholder="e.g. E"
+                                                />
+                                            </div>
+                                            <button
+                                                v-if="row.alleles.length > 1"
+                                                type="button"
+                                                class="theme-text-dark hover:theme-text cursor-pointer rounded p-1"
+                                                :aria-label="'Remove allele ' + (aIdx + 1)"
+                                                @click="
+                                                    removePhenoAllele(i, aIdx)
+                                                "
+                                            >
+                                                <Trash2 class="size-3.5" />
+                                            </button>
+                                        </template>
+                                        <button
+                                            type="button"
+                                            class="theme-text-dark hover:theme-text theme-border flex h-9 cursor-pointer items-center gap-1 rounded border px-2 text-xs"
+                                            aria-label="Add allele"
+                                            @click="addPhenoAllele(i)"
+                                        >
+                                            <Plus class="size-3" />
+                                            Add
+                                        </button>
+                                    </div>
+                                </template>
+                                <span v-else class="theme-text-dark">{{
+                                    row.alleles?.join(', ') || '—'
+                                }}</span>
+                            </td>
+                            <td v-if="canEdit" class="px-1 py-2">
+                                <button
+                                    type="button"
+                                    class="theme-text-dark hover:theme-text cursor-pointer rounded p-1 disabled:opacity-40"
+                                    :disabled="phenosTableRows.length <= 1"
+                                    :aria-label="'Remove pheno ' + row.name"
+                                    @click="removePheno(i)"
+                                >
+                                    <Trash2 class="size-4" />
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div
+                    v-if="canEdit"
+                    class="mt-3 flex flex-wrap items-center justify-end gap-2"
+                >
+                    <button
+                        type="button"
+                        class="theme-text-dark hover:theme-text theme-border flex cursor-pointer items-center gap-1 rounded-md border px-4 py-2 text-sm font-medium"
+                        aria-label="Add pheno"
+                        @click="addPheno"
+                    >
+                        <Plus class="size-3" />
+                        Add pheno
+                    </button>
+                    <button
+                        type="button"
+                        class="theme-border theme-bg-dark theme-text cursor-pointer rounded-md border px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                        :disabled="savingPhenos"
+                        @click="savePhenos"
+                    >
+                        {{ savingPhenos ? 'Saving…' : 'Save phenos' }}
                     </button>
                 </div>
             </section>

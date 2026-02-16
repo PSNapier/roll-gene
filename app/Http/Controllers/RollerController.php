@@ -45,6 +45,7 @@ class RollerController extends Controller
                 'is_core' => $roller->is_core,
             ],
             'genetics' => $genetics,
+            'phenos' => $roller->phenos ?? [],
             'canEdit' => $canEdit,
             'outcomes' => $request->session()->get('roller_outcomes'),
         ]);
@@ -54,10 +55,23 @@ class RollerController extends Controller
     {
         $this->authorize('update', $roller);
 
-        $roller->update(['dictionary' => $request->validated('dictionary')]);
+        $payload = [];
+        if ($request->has('dictionary')) {
+            $payload['dictionary'] = $request->validated('dictionary');
+        }
+        if ($request->has('phenos')) {
+            $payload['phenos'] = $request->validated('phenos');
+        }
+        $roller->update($payload);
+
+        $message = match (true) {
+            isset($payload['dictionary'], $payload['phenos']) => 'Genes and phenos updated.',
+            isset($payload['phenos']) => 'Phenos updated.',
+            default => 'Genes updated.',
+        };
 
         return redirect()->route('rollers.show', $roller)
-            ->with('status', 'Genes updated.');
+            ->with('status', $message);
     }
 
     public function roll(Request $request, Roller $roller): RedirectResponse

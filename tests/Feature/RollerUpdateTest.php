@@ -80,3 +80,36 @@ test('show passes canEdit false when user cannot update', function () {
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page->component('RollerShow')->has('canEdit')->where('canEdit', false));
 });
+
+test('owner can update phenos only', function () {
+    $user = User::factory()->create();
+    $roller = Roller::factory()->create(['user_id' => $user->id, 'is_core' => false]);
+
+    $phenos = [
+        ['name' => 'black', 'alleles' => ['E', 'e']],
+        ['name' => 'chestnut', 'alleles' => ['e']],
+    ];
+
+    $response = $this->actingAs($user)->patch(route('rollers.update', $roller), [
+        'phenos' => $phenos,
+    ]);
+
+    $response->assertRedirect(route('rollers.show', $roller));
+    $roller->refresh();
+    expect($roller->phenos)->toBe($phenos);
+});
+
+test('show passes phenos to RollerShow', function () {
+    $roller = Roller::factory()->create([
+        'visibility' => 'public',
+        'phenos' => [['name' => 'bay', 'alleles' => ['A']]],
+    ]);
+
+    $response = $this->get(route('rollers.show', $roller));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('RollerShow')
+        ->has('phenos')
+        ->where('phenos', [['name' => 'bay', 'alleles' => ['A']]]));
+});
