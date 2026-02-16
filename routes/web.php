@@ -24,6 +24,8 @@ Route::get('rollers', [RollerController::class, 'index'])
     ->name('rollers.index');
 Route::get('rollers/{roller:slug}', [RollerController::class, 'show'])
     ->name('rollers.show');
+Route::patch('rollers/{roller:slug}', [RollerController::class, 'update'])
+    ->name('rollers.update');
 Route::post('rollers/{roller:slug}/roll', [RollerController::class, 'roll'])
     ->name('rollers.roll');
 

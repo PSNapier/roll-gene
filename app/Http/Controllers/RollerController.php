@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateRollerRequest;
 use App\Models\Roller;
 use App\Services\GeneticsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,6 +35,7 @@ class RollerController extends Controller
         $this->authorize('view', $roller);
 
         $genetics = $this->geneticsService->getDictionaryForRoller($roller);
+        $canEdit = $request->user() && Gate::allows('update', $roller);
 
         return Inertia::render('RollerShow', [
             'roller' => [
@@ -42,8 +45,19 @@ class RollerController extends Controller
                 'is_core' => $roller->is_core,
             ],
             'genetics' => $genetics,
+            'canEdit' => $canEdit,
             'outcomes' => $request->session()->get('roller_outcomes'),
         ]);
+    }
+
+    public function update(UpdateRollerRequest $request, Roller $roller): RedirectResponse
+    {
+        $this->authorize('update', $roller);
+
+        $roller->update(['dictionary' => $request->validated('dictionary')]);
+
+        return redirect()->route('rollers.show', $roller)
+            ->with('status', 'Genes updated.');
     }
 
     public function roll(Request $request, Roller $roller): RedirectResponse
