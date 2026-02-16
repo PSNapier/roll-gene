@@ -31,3 +31,4 @@ Add new colours as CSS variables and `@theme` entries in `app.css`; then use the
 - For user customization: override CSS variables (e.g. in a user-specific class or `<style>` that sets `--accent-1`, `--bg`, etc.) so Vue markup stays unchanged.
 - **No dark mode**: Dark variant/support is removed. To change the look, swap themes (e.g. named theme classes that override CSS variables) rather than toggling light/dark.
 - **Mobile first for layout**: Prefer single-column/stacked by default; add multi-column or side-by-side layout at desktop breakpoint (1280px).
+- **Prefer consistent heights and widths**: Be consistent about element sizing in rows and columns, e.g. if 2 items are in the same column consider if they should be the same width, and if 2 buttons are beside each other or in the same row they should be the same height, etc.
