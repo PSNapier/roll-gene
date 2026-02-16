@@ -1,50 +1,45 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { dashboard } from '@/routes';
-import { type BreadcrumbItem } from '@/types';
-
-const singleLocus = 'singleLocus';
-const domRec = 'domRec';
-
-type GeneType = typeof singleLocus | typeof domRec;
-class Gene {
-    constructor(
-        public type: GeneType,
-        public alleles: string[],
-    ) {}
-}
-
-// gene type
-const dict = {
-    black: new Gene(singleLocus, ['E', 'e']),
-    agouti: new Gene(singleLocus, ['At', 'A', 'a']),
-    silver: new Gene(domRec, ['Z']),
-};
 
 const odds = {
-    realistic: {
+    base: {
         roll1: 25,
         roll2: 25,
         roll3: 25,
         roll4: 25,
     },
+    percentage: {
+        domXdom: { dom: 100 },
+        domXrec: { dom: 100 },
+        domXnone: { rec: 50 },
+        recXrec: { dom: 50, rec: 50 },
+        recXnone: { rec: 50 },
+    },
+};
+
+const base = odds.base;
+const percentage = odds.percentage;
+
+type GeneType = typeof base | typeof percentage;
+class Gene {
+    constructor(
+        public odds: GeneType,
+        public alleles: string[],
+    ) {}
+}
+
+const dict = {
+    black: new Gene(base, ['E', 'e']),
+    agouti: new Gene(base, ['At', 'A', 'a']),
+    silver: new Gene(percentage, ['Z']),
 };
 
 console.log(dict);
-
-// pheno overrides
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard().url,
-    },
-];
 </script>
 
 <template>
     <Head title="Dashboard" />
 
-    <AppLayout :breadcrumbs="breadcrumbs"> </AppLayout>
+    <AppLayout></AppLayout>
 </template>

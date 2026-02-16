@@ -2,20 +2,11 @@
 import AppContent from '@/components/AppContent.vue';
 import AppHeader from '@/components/AppCustomHeader.vue';
 import AppShell from '@/components/AppShell.vue';
-import type { BreadcrumbItem } from '@/types';
-
-type Props = {
-    breadcrumbs?: BreadcrumbItem[];
-};
-
-withDefaults(defineProps<Props>(), {
-    breadcrumbs: () => [],
-});
 </script>
 
 <template>
     <AppShell class="flex-col">
-        <AppHeader :breadcrumbs="breadcrumbs" />
+        <AppHeader />
         <AppContent>
             <slot />
         </AppContent>
