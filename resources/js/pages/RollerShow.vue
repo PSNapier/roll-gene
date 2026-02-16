@@ -4,7 +4,7 @@ import { TriangleAlert } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { roll as rollerRoll, show as rollerShow } from '@/routes/rollers';
+import { roll as rollerRoll } from '@/routes/rollers';
 
 interface GeneEntry {
     oddsType: 'punnett' | 'percentage';
