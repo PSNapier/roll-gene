@@ -350,7 +350,7 @@ function doRoll(): void {
 
             <section class="theme-bg-dark theme-border rounded-lg border p-4">
                 <h2 class="theme-text-dark mb-3 text-lg font-medium">
-                    Punnett Odds
+                    Roll Odds
                 </h2>
                 <pre class="theme-text overflow-x-auto text-sm">{{
                     JSON.stringify(props.genetics.odds, null, 2)
