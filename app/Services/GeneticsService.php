@@ -5,15 +5,15 @@ namespace App\Services;
 class GeneticsService
 {
     /** @var array<string, int> Punnett square cell weights (roll1..roll4). */
-    private const DEFAULT_BASE_ODDS_KEYS = ['roll1', 'roll2', 'roll3', 'roll4'];
+    private const DEFAULT_PUNNETT_ODDS_KEYS = ['roll1', 'roll2', 'roll3', 'roll4'];
 
     /**
-     * Default odds for base (realistic/Punnett) gene rolling.
+     * Default odds for Punnett (realistic) gene rolling.
      * Each key (roll1..roll4) is the weight for one cell of the 2x2 Punnett square.
      *
      * @return array<string, int>
      */
-    public function getBaseOdds(): array
+    public function getPunnettOdds(): array
     {
         return [
             'roll1' => 25,
@@ -85,23 +85,23 @@ class GeneticsService
 
     /**
      * Base equine genetics dictionary (public free tier).
-     * Each gene has an odds type ('base' or 'percentage') and alleles (dominance order).
+     * Each gene has an odds type ('punnett' or 'percentage') and alleles (dominance order).
      *
-     * @return array{odds: array{base: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}
+     * @return array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}
      */
     public function getBaseDictionary(): array
     {
-        $base = $this->getBaseOdds();
+        $punnett = $this->getPunnettOdds();
         $percentage = $this->getPercentageOdds();
 
         return [
             'odds' => [
-                'base' => $base,
+                'punnett' => $punnett,
                 'percentage' => $percentage,
             ],
             'dict' => [
-                'black' => ['oddsType' => 'base', 'alleles' => ['E', 'e']],
-                'agouti' => ['oddsType' => 'base', 'alleles' => ['At', 'A', 'a']],
+                'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
+                'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
                 'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
             ],
         ];
@@ -187,23 +187,23 @@ class GeneticsService
         $dict = $data['dict'];
         $geneNames = array_keys($dict);
 
-        $baseGeneNames = [];
+        $punnettGeneNames = [];
         foreach ($geneNames as $name) {
-            if (($dict[$name]['oddsType'] ?? '') === 'base') {
-                $baseGeneNames[] = $name;
+            if (($dict[$name]['oddsType'] ?? '') === 'punnett') {
+                $punnettGeneNames[] = $name;
             }
         }
 
-        if (count($tokens) < count($baseGeneNames)) {
+        if (count($tokens) < count($punnettGeneNames)) {
             throw new \InvalidArgumentException(
-                'Not enough gene values: need '.count($baseGeneNames).' (for '.implode(', ', $baseGeneNames).'), got '.count($tokens).'.'
+                'Not enough gene values: need '.count($punnettGeneNames).' (for '.implode(', ', $punnettGeneNames).'), got '.count($tokens).'.'
             );
         }
 
         $used = array_fill(0, count($tokens), false);
         $assignment = [];
 
-        foreach ($baseGeneNames as $geneName) {
+        foreach ($punnettGeneNames as $geneName) {
             $alleles = $dict[$geneName]['alleles'];
             $found = null;
             foreach ($tokens as $j => $token) {
@@ -264,16 +264,16 @@ class GeneticsService
     }
 
     /**
-     * All possible offspring genotypes for one base gene with their relative probabilities.
+     * All possible offspring genotypes for one Punnett gene with their relative probabilities.
      * Punnett square: (sire1,dam1)=roll1, (sire1,dam2)=roll2, (sire2,dam1)=roll3, (sire2,dam2)=roll4.
      *
      * @param  array{0: string, 1: string}  $sireAlleles
      * @param  array{0: string, 1: string}  $damAlleles
      * @param  array<string>  $allelesOrder
-     * @param  array<string, int>  $baseOdds
+     * @param  array<string, int>  $punnettOdds
      * @return array<int, array{genotype: string, probability: float}>
      */
-    public function getPunnettOutcomesForGene(array $sireAlleles, array $damAlleles, array $allelesOrder, array $baseOdds): array
+    public function getPunnettOutcomesForGene(array $sireAlleles, array $damAlleles, array $allelesOrder, array $punnettOdds): array
     {
         $pairs = [
             [$sireAlleles[0], $damAlleles[0]],
@@ -282,10 +282,10 @@ class GeneticsService
             [$sireAlleles[1], $damAlleles[1]],
         ];
         $weights = [
-            $baseOdds['roll1'] ?? 25,
-            $baseOdds['roll2'] ?? 25,
-            $baseOdds['roll3'] ?? 25,
-            $baseOdds['roll4'] ?? 25,
+            $punnettOdds['roll1'] ?? 25,
+            $punnettOdds['roll2'] ?? 25,
+            $punnettOdds['roll3'] ?? 25,
+            $punnettOdds['roll4'] ?? 25,
         ];
         $total = (float) array_sum($weights);
         if ($total <= 0) {
@@ -294,7 +294,7 @@ class GeneticsService
         }
 
         $outcomes = [];
-        foreach (self::DEFAULT_BASE_ODDS_KEYS as $i => $key) {
+        foreach (self::DEFAULT_PUNNETT_ODDS_KEYS as $i => $key) {
             $genotype = $this->formatGenotype($pairs[$i], $allelesOrder);
             $outcomes[] = [
                 'genotype' => $genotype,
@@ -338,7 +338,7 @@ class GeneticsService
 
     /**
      * Enumerate all possible offspring combinations from sire and dam gene strings, with probabilities as percentages.
-     * Base genes use Punnett odds; percentage genes use the configured percentage odds (dom/rec/none).
+     * Punnett genes use Punnett odds; percentage genes use the configured percentage odds (dom/rec/none).
      *
      * @param  array<string>  $sireGenes  One genotype per gene, in same order as dictionary keys (e.g. ['Ee', 'Aa', 'nZ']).
      * @param  array<string>  $damGenes
@@ -348,7 +348,7 @@ class GeneticsService
     {
         $data = $this->getBaseDictionary();
         $dict = $data['dict'];
-        $baseOdds = $data['odds']['base'];
+        $punnettOdds = $data['odds']['punnett'];
         $percentageOdds = $data['odds']['percentage'];
         $geneNames = array_keys($dict);
 
@@ -359,13 +359,13 @@ class GeneticsService
             $sireRaw = trim($sireGenes[$index] ?? '');
             $damRaw = trim($damGenes[$index] ?? '');
 
-            if (($entry['oddsType'] ?? '') === 'base') {
+            if (($entry['oddsType'] ?? '') === 'punnett') {
                 if ($sireRaw === '' || $damRaw === '') {
                     continue;
                 }
                 $sireAlleles = $this->parseParentGenotype($sireRaw, $alleles);
                 $damAlleles = $this->parseParentGenotype($damRaw, $alleles);
-                $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $baseOdds);
+                $perGeneOutcomes[$geneName] = $this->getPunnettOutcomesForGene($sireAlleles, $damAlleles, $alleles, $punnettOdds);
 
                 continue;
             }

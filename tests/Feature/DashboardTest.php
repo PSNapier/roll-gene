@@ -19,7 +19,7 @@ test('authenticated users can visit the dashboard', function () {
         ->has('genetics', fn (Assert $page) => $page
             ->has('odds')
             ->has('dict')
-            ->where('dict.black.oddsType', 'base')
+            ->where('dict.black.oddsType', 'punnett')
             ->where('dict.black.alleles', ['E', 'e'])
             ->where('dict.silver.oddsType', 'percentage')
         )

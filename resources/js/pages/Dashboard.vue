@@ -7,13 +7,13 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { roll } from '@/routes/dashboard';
 
 interface GeneEntry {
-    oddsType: 'base' | 'percentage';
+    oddsType: 'punnett' | 'percentage';
     alleles: string[];
 }
 
 interface GeneticsData {
     odds: {
-        base: Record<string, number>;
+        punnett: Record<string, number>;
         percentage: Record<string, Record<string, number>>;
     };
     dict: Record<string, GeneEntry>;
@@ -75,9 +75,9 @@ const damGenes = computed(() => parseGeneString(damGenesRaw.value));
 
 const geneNames = computed(() => Object.keys(props.genetics.dict));
 
-const baseGeneNames = computed(() =>
+const punnettGeneNames = computed(() =>
     geneNames.value.filter(
-        (name) => props.genetics.dict[name].oddsType === 'base',
+        (name) => props.genetics.dict[name].oddsType === 'punnett',
     ),
 );
 
@@ -88,7 +88,7 @@ function assignTokensToGenes(
     const warnings: string[] = [];
     const used = new Set<number>();
 
-    for (const name of baseGeneNames.value) {
+    for (const name of punnettGeneNames.value) {
         const alleles = dict[name].alleles;
         let found = -1;
         for (let j = 0; j < tokens.length; j++) {
@@ -291,7 +291,7 @@ function doRoll(): void {
                     Possible offspring
                 </h2>
                 <p class="theme-text-dark mb-3 text-sm">
-                    All combinations and their probabilities (base genes only).
+                    All combinations and their probabilities (punnett genes only).
                 </p>
                 <table class="w-max text-sm">
                     <thead>
@@ -350,7 +350,7 @@ function doRoll(): void {
 
             <section class="theme-bg-dark theme-border rounded-lg border p-4">
                 <h2 class="theme-text-dark mb-3 text-lg font-medium">
-                    Base Odds
+                    Punnett Odds
                 </h2>
                 <pre class="theme-text overflow-x-auto text-sm">{{
                     JSON.stringify(props.genetics.odds, null, 2)
