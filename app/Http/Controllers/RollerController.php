@@ -16,6 +16,18 @@ class RollerController extends Controller
         private GeneticsService $geneticsService
     ) {}
 
+    public function index(Request $request): Response
+    {
+        $rollers = Roller::query()
+            ->visibleTo($request->user())
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'is_core', 'visibility']);
+
+        return Inertia::render('Rollers/Index', [
+            'rollers' => $rollers,
+        ]);
+    }
+
     public function show(Request $request, Roller $roller): Response|RedirectResponse
     {
         $this->authorize('view', $roller);

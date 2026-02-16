@@ -16,6 +16,8 @@ Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
+Route::get('rollers', [RollerController::class, 'index'])
+    ->name('rollers.index');
 Route::get('rollers/{roller:slug}', [RollerController::class, 'show'])
     ->name('rollers.show');
 Route::post('rollers/{roller:slug}/roll', [RollerController::class, 'roll'])
