@@ -85,21 +85,27 @@ test('owner can update phenos only', function () {
     $user = User::factory()->create();
     $roller = Roller::factory()->create(['user_id' => $user->id, 'is_core' => false]);
 
-    $phenos = [
-        ['name' => 'black', 'alleles' => ['E', 'e']],
-        ['name' => 'chestnut', 'alleles' => ['e']],
+    $phenoDict = [
+        [
+            'name' => 'Base',
+            'match_mode' => 'first_dominant',
+            'phenos' => [
+                ['name' => 'black', 'alleles' => ['E', 'e']],
+                ['name' => 'chestnut', 'alleles' => ['e']],
+            ],
+        ],
     ];
 
     $response = $this->actingAs($user)->patch(route('rollers.update', $roller), [
-        'phenoDict' => $phenos,
+        'phenoDict' => $phenoDict,
     ]);
 
     $response->assertRedirect(route('rollers.show', $roller));
     $roller->refresh();
-    expect($roller->pheno_dict)->toBe($phenos);
+    expect($roller->pheno_dict)->toBe($phenoDict);
 });
 
-test('show passes phenoDict to RollerShow', function () {
+test('show passes phenoSections to RollerShow', function () {
     $roller = Roller::factory()->create([
         'visibility' => 'public',
         'pheno_dict' => [['name' => 'bay', 'alleles' => ['A']]],
@@ -110,6 +116,8 @@ test('show passes phenoDict to RollerShow', function () {
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
         ->component('RollerShow')
-        ->has('phenoDict')
-        ->where('phenoDict', [['name' => 'bay', 'alleles' => ['A']]]));
+        ->has('phenoSections')
+        ->where('phenoSections', [
+            ['name' => 'Base', 'match_mode' => 'first_dominant', 'phenos' => [['name' => 'bay', 'alleles' => ['A']]]],
+        ]));
 });

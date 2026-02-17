@@ -45,7 +45,7 @@ class RollerController extends Controller
                 'is_core' => $roller->is_core,
             ],
             'genetics' => $genetics,
-            'phenoDict' => $roller->pheno_dict ?? [],
+            'phenoSections' => $roller->getPhenoSections(),
             'canEdit' => $canEdit,
             'outcomes' => $request->session()->get('roller_outcomes'),
         ]);

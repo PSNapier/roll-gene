@@ -3,9 +3,10 @@ import type { RequestPayload } from '@inertiajs/core';
 import { Head, router } from '@inertiajs/vue3';
 import { useSortable } from '@vueuse/integrations/useSortable';
 import type { UseSortableOptions } from '@vueuse/integrations/useSortable';
-import { GripVertical, Plus, Trash2, TriangleAlert } from 'lucide-vue-next';
+import { GripVertical, Plus, Trash2, TriangleAlert, X } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import PunnettAllelesEditor from '@/components/PunnettAllelesEditor.vue';
+import SectionPhenoTable from '@/components/SectionPhenoTable.vue';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { roll as rollerRoll, update as rollerUpdate } from '@/routes/rollers';
@@ -45,12 +46,20 @@ interface RollerInfo {
 interface PhenoEntry {
     name: string;
     alleles: string[];
+    locus_first?: boolean;
+}
+
+/** Section (grouping) of phenos; first-match within section = that grouping's result. */
+interface PhenoSection {
+    name: string;
+    match_mode?: string;
+    phenos: PhenoEntry[];
 }
 
 const props = defineProps<{
     roller: RollerInfo;
     genetics: GeneticsData;
-    phenoDict?: PhenoEntry[];
+    phenoSections?: PhenoSection[];
     canEdit?: boolean;
     outcomes?: BreedingOutcome[];
     errors?: Record<string, string>;
@@ -61,10 +70,9 @@ const editGenes = ref<EditGeneRow[]>([]);
 let nextGeneId = 0;
 
 function syncEditGenesFromProps(): void {
-    const genesDict = JSON.parse(JSON.stringify(props.genetics.genesDict)) as Record<
-        string,
-        GeneEntry
-    >;
+    const genesDict = JSON.parse(
+        JSON.stringify(props.genetics.genesDict),
+    ) as Record<string, GeneEntry>;
     editGenes.value = Object.entries(genesDict).map(([name, entry]) => ({
         id: nextGeneId++,
         name,
@@ -134,72 +142,138 @@ function removeGene(rowIndex: number): void {
     editGenes.value = editGenes.value.filter((_, i) => i !== rowIndex);
 }
 
-/** Pheno Reader: editable rows synced from props. */
+/** Pheno Reader: sections (groupings); dominance is first-match within each section. */
 interface EditPhenoRow extends PhenoEntry {
     id: number | string;
+    locusFirst: boolean;
 }
-const editPhenos = ref<EditPhenoRow[]>([]);
+interface EditPhenoSection {
+    id: number | string;
+    name: string;
+    match_mode: string;
+    phenos: EditPhenoRow[];
+}
+const editSections = ref<EditPhenoSection[]>([]);
 let nextPhenoId = 0;
+let nextSectionId = 0;
+
+const PHENO_MODE_OVERRIDE = 'override';
+const PHENO_MODE_ALL_MATCHES = 'all_matches';
 
 function syncEditPhenosFromProps(): void {
-    const list = (props.phenoDict ?? []) as PhenoEntry[];
-    editPhenos.value = list.map((p) => ({
-        id: nextPhenoId++,
-        name: p.name,
-        alleles: [...(p.alleles ?? [])],
+    const sections = (props.phenoSections ?? []) as PhenoSection[];
+    editSections.value = sections.map((sec) => ({
+        id: nextSectionId++,
+        name: sec.name ?? 'Grouping',
+        match_mode:
+            sec.match_mode === PHENO_MODE_ALL_MATCHES
+                ? PHENO_MODE_ALL_MATCHES
+                : PHENO_MODE_OVERRIDE,
+        phenos: (sec.phenos ?? []).map((p) => ({
+            id: nextPhenoId++,
+            name: p.name,
+            alleles: [...(p.alleles ?? [])],
+            locusFirst: p.locus_first ?? false,
+        })),
     }));
 }
 
 onMounted(syncEditPhenosFromProps);
 watch(
-    () => props.phenoDict,
+    () => props.phenoSections,
     () => syncEditPhenosFromProps(),
     { deep: true },
 );
 
-const phenosTbodyRef = ref<HTMLElement | null>(null);
-useSortable(phenosTbodyRef, editPhenos, {
-    handle: '.pheno-drag-handle',
-    animation: 150,
-    ghostClass: 'opacity-50',
-} as UseSortableOptions);
-
-function addPheno(): void {
-    editPhenos.value = [
-        ...editPhenos.value,
-        { id: nextPhenoId++, name: '', alleles: [''] },
+function addSection(): void {
+    editSections.value = [
+        ...editSections.value,
+        {
+            id: nextSectionId++,
+            name: 'Grouping',
+            match_mode: PHENO_MODE_OVERRIDE,
+            phenos: [
+                {
+                    id: nextPhenoId++,
+                    name: '',
+                    alleles: [''],
+                    locusFirst: false,
+                },
+            ],
+        },
     ];
 }
 
-function removePheno(rowIndex: number): void {
-    editPhenos.value = editPhenos.value.filter((_, i) => i !== rowIndex);
+function removeSection(sectionIndex: number): void {
+    if (editSections.value.length <= 1) return;
+    editSections.value = editSections.value.filter(
+        (_, i) => i !== sectionIndex,
+    );
 }
 
-function addPhenoAllele(rowIndex: number): void {
-    const row = editPhenos.value[rowIndex];
+function addPheno(sectionIndex: number): void {
+    const sec = editSections.value[sectionIndex];
+    if (sec)
+        sec.phenos = [
+            ...sec.phenos,
+            {
+                id: nextPhenoId++,
+                name: '',
+                alleles: [''],
+                locusFirst: false,
+            },
+        ];
+}
+
+function removePheno(sectionIndex: number, rowIndex: number): void {
+    const sec = editSections.value[sectionIndex];
+    if (sec && sec.phenos.length > 1) {
+        sec.phenos = sec.phenos.filter((_, i) => i !== rowIndex);
+    }
+}
+
+function addPhenoLocus(sectionIndex: number, rowIndex: number): void {
+    const row = editSections.value[sectionIndex]?.phenos[rowIndex];
     if (row) row.alleles = [...row.alleles, ''];
 }
 
-function removePhenoAllele(rowIndex: number, alleleIndex: number): void {
-    const row = editPhenos.value[rowIndex];
+function removePhenoLocus(
+    sectionIndex: number,
+    rowIndex: number,
+    alleleIndex: number,
+): void {
+    const row = editSections.value[sectionIndex]?.phenos[rowIndex];
     if (row && row.alleles.length > 1) {
         row.alleles = row.alleles.filter((_, i) => i !== alleleIndex);
     }
 }
 
+function updateSectionPhenos(
+    sectionIndex: number,
+    phenos: EditPhenoRow[],
+): void {
+    const sec = editSections.value[sectionIndex];
+    if (sec) sec.phenos = phenos;
+}
+
 const savingPhenos = ref(false);
 function savePhenos(): void {
-    const list: PhenoEntry[] = editPhenos.value.map((p) => {
-        const alleles = p.alleles.map((a) => a.trim()).filter(Boolean);
-        return {
-            name: p.name.trim() || `pheno_${p.id}`,
-            alleles: alleles.length ? alleles : [''],
-        };
-    });
+    const phenoDict = editSections.value.map((sec) => ({
+        name: sec.name.trim() || 'Grouping',
+        match_mode: sec.match_mode,
+        phenos: sec.phenos.map((p) => {
+            const alleles = p.alleles.map((a) => a.trim()).filter(Boolean);
+            return {
+                name: p.name.trim() || `pheno_${p.id}`,
+                alleles: alleles.length ? alleles : [''],
+                locus_first: p.locusFirst,
+            };
+        }),
+    }));
     savingPhenos.value = true;
     router.patch(
         rollerUpdate.url({ roller: props.roller.slug }),
-        { phenoDict: list } as unknown as RequestPayload,
+        { phenoDict } as unknown as RequestPayload,
         {
             preserveScroll: true,
             onFinish: () => {
@@ -208,16 +282,6 @@ function savePhenos(): void {
         },
     );
 }
-
-const phenosTableRows = computed(() =>
-    props.canEdit
-        ? editPhenos.value
-        : (props.phenoDict ?? []).map((p: PhenoEntry, i: number) => ({
-              id: i,
-              name: p.name,
-              alleles: p.alleles ?? [],
-          })),
-);
 
 const savingDict = ref(false);
 function saveDict(): void {
@@ -376,26 +440,86 @@ const rolling = ref(false);
 const canRoll = computed(() => !rolling.value && !hasValidationWarnings.value);
 
 /**
- * First-match-wins by pheno order (dominance). Pheno matches if every genotype
- * token is in the pheno's allowed-alleles list (e.g. Ee, EE, AA, Aa matches Ee Aa or EE Aa).
+ * Per grouping (section): Override = first matching pheno wins; All Matches = all matching phenos.
+ * Returns display strings in section order. When namesOnly is false, each string is pheno name with
+ * locus (genotype) prepended or appended per pheno's locus_first. When namesOnly is true, returns
+ * only pheno names (for use where genotype is shown separately). Match is case-sensitive; use '|'
+ * for OR (e.g. 'EE|Ee').
+ * When a pheno has fewer locus specs than genotype length, each spec is matched against any gene
+ * (distinct indices) so e.g. Cream with ["CrCr|nCr"] matches the Cream gene regardless of position.
  */
-function getMatchingPhenos(genotype: string[]): string[] {
-    const phenos = props.phenoDict ?? [];
-    const allowedSet = (alleles: string[]) =>
-        new Set((alleles ?? []).filter(Boolean).map((a) => a.trim()));
-    for (const p of phenos) {
-        const set = allowedSet(p.alleles);
-        if (set.size === 0) continue;
-        const everyTokenAllowed = genotype.every((token) =>
-            set.has(token.trim()),
+function getMatchingPhenos(genotype: string[], namesOnly = false): string[] {
+    const sections = props.phenoSections ?? [];
+    const allowedSetForLocus = (locusAlleles: string) =>
+        new Set(
+            (locusAlleles ?? '')
+                .split('|')
+                .map((part) => part.trim())
+                .filter(Boolean),
         );
-        if (everyTokenAllowed) return [p.name];
+    const result: string[] = [];
+    for (const sec of sections) {
+        const allMatches = sec.match_mode === PHENO_MODE_ALL_MATCHES;
+        for (const p of sec.phenos ?? []) {
+            const alleleSpecs = p.alleles ?? [];
+            if (alleleSpecs.length === 0) continue;
+            if (genotype.length < alleleSpecs.length) continue;
+
+            let matched: boolean;
+            let matchedLocusPart: string;
+            if (alleleSpecs.length === genotype.length) {
+                matched = alleleSpecs.every((spec, idx) => {
+                    const set = allowedSetForLocus(spec);
+                    return (
+                        set.size > 0 && set.has((genotype[idx] ?? '').trim())
+                    );
+                });
+                matchedLocusPart = genotype
+                    .slice(0, alleleSpecs.length)
+                    .join(' ')
+                    .trim();
+            } else {
+                const usedIndices = new Set<number>();
+                const matchedTokens: string[] = [];
+                matched = alleleSpecs.every((spec) => {
+                    const set = allowedSetForLocus(spec);
+                    if (set.size === 0) return true;
+                    for (let i = 0; i < genotype.length; i++) {
+                        if (usedIndices.has(i)) continue;
+                        const token = (genotype[i] ?? '').trim();
+                        if (set.has(token)) {
+                            usedIndices.add(i);
+                            matchedTokens.push(token);
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+                matchedLocusPart = matched ? matchedTokens.join(' ') : '';
+            }
+
+            if (matched) {
+                if (namesOnly) {
+                    result.push(p.name ?? '');
+                } else {
+                    const phenoName = p.name ?? '';
+                    const display =
+                        p.locus_first && matchedLocusPart
+                            ? `${matchedLocusPart} ${phenoName}`
+                            : matchedLocusPart
+                              ? `${phenoName} ${matchedLocusPart}`
+                              : phenoName;
+                    result.push(display);
+                }
+                if (!allMatches) break;
+            }
+        }
     }
-    return [];
+    return result;
 }
 
 const matchingPhenosByOutcome = computed(() =>
-    (props.outcomes ?? []).map((row) => getMatchingPhenos(row.genotype)),
+    (props.outcomes ?? []).map((row) => getMatchingPhenos(row.genotype, true)),
 );
 
 function doRoll(): void {
@@ -575,11 +699,14 @@ function doRoll(): void {
                                 class="theme-text px-3 py-2 font-medium whitespace-nowrap"
                             >
                                 <div>{{ row.genotype.join(' ') }}</div>
-                                <div
-                                    v-if="matchingPhenosByOutcome[i]?.length"
-                                    class="theme-text-dark mt-0.5 text-xs"
-                                >
-                                    {{ matchingPhenosByOutcome[i].join(', ') }}
+                                <div class="theme-text-dark mt-0.5 text-xs">
+                                    {{
+                                        matchingPhenosByOutcome[i]?.length
+                                            ? matchingPhenosByOutcome[i].join(
+                                                  ', ',
+                                              )
+                                            : '—'
+                                    }}
                                 </div>
                             </td>
                             <td class="theme-text-dark px-3 py-2 text-left">
@@ -761,125 +888,153 @@ function doRoll(): void {
                     Pheno Reader
                 </h2>
                 <p class="theme-text-dark mb-3 text-sm">
-                    Order = dominance (first match wins). List allowed genotype
-                    values per gene (e.g. Ee, EE, AA, Aa). A genotype matches if
-                    every token is in that list; only the top matching pheno is
-                    shown.
+                    Groupings are table sections; order within each grouping =
+                    dominance (first match wins). A genotype matches a pheno if
+                    every token is in that pheno's list; one result per
+                    grouping. Use
+                    <code class="theme-border rounded px-1">|</code> in a locus
+                    for OR (e.g.
+                    <code class="theme-border rounded px-1">EE|Ee</code>).
                 </p>
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="theme-text-dark theme-border border-b">
-                            <th
-                                v-if="canEdit"
-                                class="theme-text w-8 px-1 py-2"
-                                aria-label="Drag to reorder"
-                            ></th>
-                            <th
-                                class="theme-text px-3 py-2 text-left font-medium"
-                            >
-                                Pheno name
-                            </th>
-                            <th
-                                class="theme-text px-3 py-2 text-left font-medium"
-                            >
-                                Allowed genotype values
-                            </th>
-                            <th
-                                v-if="canEdit"
-                                class="theme-text w-8 px-1 py-2"
-                                aria-label="Remove pheno"
-                            ></th>
-                        </tr>
-                    </thead>
-                    <tbody ref="phenosTbodyRef">
-                        <tr
-                            v-for="(row, i) in phenosTableRows"
-                            :key="row.id"
-                            class="theme-text theme-border border-b last:border-b-0 even:bg-muted"
+                <template
+                    v-for="(sec, sectionIndex) in canEdit
+                        ? editSections
+                        : (phenoSections ?? [])"
+                    :key="canEdit ? (sec as EditPhenoSection).id : sectionIndex"
+                >
+                    <div
+                        class="theme-border relative mb-4 rounded-lg border p-4 last:mb-0"
+                    >
+                        <button
+                            v-if="canEdit && editSections.length > 1"
+                            type="button"
+                            class="theme-text-dark hover:theme-text absolute top-2 right-2 cursor-pointer rounded p-1"
+                            aria-label="Remove grouping"
+                            @click="removeSection(sectionIndex)"
                         >
-                            <td v-if="canEdit" class="px-1 py-2">
-                                <span
-                                    class="pheno-drag-handle theme-text-dark cursor-grab touch-none p-1 active:cursor-grabbing"
-                                    aria-label="Drag to reorder pheno"
+                            <X class="size-4" />
+                        </button>
+                        <div
+                            class="theme-text-dark mb-2 flex flex-wrap items-center gap-2 pr-6"
+                        >
+                            <Input
+                                v-if="canEdit"
+                                v-model="(sec as EditPhenoSection).name"
+                                class="theme-text h-8 w-28 text-sm capitalize"
+                                placeholder="e.g. Grouping"
+                            />
+                            <Input
+                                v-else
+                                :model-value="(sec as PhenoSection).name"
+                                class="theme-text h-8 w-28 text-sm capitalize"
+                                readonly
+                            />
+                            <select
+                                v-if="canEdit"
+                                v-model="(sec as EditPhenoSection).match_mode"
+                                class="theme-text theme-border h-8 cursor-pointer rounded-md border bg-transparent px-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                aria-label="Grouping mode"
+                            >
+                                <option :value="PHENO_MODE_OVERRIDE">
+                                    Override
+                                </option>
+                                <option :value="PHENO_MODE_ALL_MATCHES">
+                                    All Matches
+                                </option>
+                            </select>
+                            <span v-else class="theme-text text-sm">
+                                {{
+                                    (sec as PhenoSection).match_mode ===
+                                    PHENO_MODE_ALL_MATCHES
+                                        ? 'All Matches'
+                                        : 'Override'
+                                }}
+                            </span>
+                        </div>
+                        <table class="w-full table-fixed text-sm">
+                            <thead>
+                                <tr
+                                    class="theme-text-dark theme-border border-b"
                                 >
-                                    <GripVertical class="size-4" />
-                                </span>
-                            </td>
-                            <td class="px-3 py-2 font-medium">
-                                <Input
-                                    v-if="canEdit"
-                                    v-model="row.name"
-                                    class="theme-text h-8 w-28 text-sm capitalize"
-                                    placeholder="e.g. black"
-                                />
-                                <span v-else class="capitalize">{{
-                                    row.name
-                                }}</span>
-                            </td>
-                            <td class="px-3 py-2">
-                                <template v-if="canEdit">
-                                    <div
-                                        class="flex flex-wrap items-center gap-1.5"
+                                    <th
+                                        v-if="canEdit"
+                                        class="theme-text w-8 px-1 py-2"
+                                        aria-label="Drag to reorder"
+                                    ></th>
+                                    <th
+                                        class="theme-text w-28 px-3 py-2 text-left font-medium"
                                     >
-                                        <template
-                                            v-for="(
-                                                allele, aIdx
-                                            ) in row.alleles"
-                                            :key="aIdx"
-                                        >
-                                            <div
-                                                class="theme-border flex h-9 min-w-0 items-center rounded border bg-transparent px-2"
-                                            >
-                                                <Input
-                                                    v-model="row.alleles[aIdx]"
-                                                    class="theme-text w-14 min-w-0 border-0 bg-transparent py-1 text-sm shadow-none focus-visible:ring-0"
-                                                    placeholder="e.g. E"
-                                                />
-                                            </div>
-                                            <button
-                                                v-if="row.alleles.length > 1"
-                                                type="button"
-                                                class="theme-text-dark hover:theme-text cursor-pointer rounded p-1"
-                                                :aria-label="
-                                                    'Remove allele ' +
-                                                    (aIdx + 1)
-                                                "
-                                                @click="
-                                                    removePhenoAllele(i, aIdx)
-                                                "
-                                            >
-                                                <Trash2 class="size-3.5" />
-                                            </button>
-                                        </template>
-                                        <button
-                                            type="button"
-                                            class="theme-text-dark hover:theme-text theme-border flex h-9 cursor-pointer items-center gap-1 rounded border px-2 text-xs"
-                                            aria-label="Add allele"
-                                            @click="addPhenoAllele(i)"
-                                        >
-                                            <Plus class="size-3" />
-                                            Add
-                                        </button>
-                                    </div>
-                                </template>
-                                <span v-else class="theme-text-dark">{{
-                                    row.alleles?.join(', ') || '—'
-                                }}</span>
-                            </td>
-                            <td v-if="canEdit" class="px-1 py-2">
-                                <button
-                                    type="button"
-                                    class="theme-text-dark hover:theme-text cursor-pointer rounded p-1 disabled:opacity-40"
-                                    :disabled="phenosTableRows.length <= 1"
-                                    :aria-label="'Remove pheno ' + row.name"
-                                    @click="removePheno(i)"
+                                        Pheno name
+                                    </th>
+                                    <th
+                                        v-if="canEdit"
+                                        class="theme-text w-28 px-2 py-2 text-left font-medium"
+                                    >
+                                        Order
+                                    </th>
+                                    <th
+                                        class="theme-text w-96 px-3 py-2 text-left font-medium"
+                                    >
+                                        Locus values
+                                    </th>
+                                    <th
+                                        v-if="canEdit"
+                                        class="theme-text w-8 px-1 py-2"
+                                        aria-label="Remove pheno"
+                                    ></th>
+                                </tr>
+                            </thead>
+                            <SectionPhenoTable
+                                v-if="canEdit"
+                                :section="sec as EditPhenoSection"
+                                :section-index="sectionIndex"
+                                :can-edit="true"
+                                @update:phenos="
+                                    updateSectionPhenos(
+                                        sectionIndex,
+                                        $event as EditPhenoRow[],
+                                    )
+                                "
+                                @remove-pheno="
+                                    removePheno(sectionIndex, $event)
+                                "
+                                @add-locus="addPhenoLocus(sectionIndex, $event)"
+                                @remove-locus="
+                                    (ri, ai) =>
+                                        removePhenoLocus(sectionIndex, ri, ai)
+                                "
+                            />
+                            <tbody v-else>
+                                <tr
+                                    v-for="(row, i) in (sec as PhenoSection)
+                                        .phenos"
+                                    :key="i"
+                                    class="theme-text theme-border border-b last:border-b-0 even:bg-muted"
                                 >
-                                    <Trash2 class="size-4" />
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                    <td
+                                        class="px-3 py-2 font-medium capitalize"
+                                    >
+                                        {{ row.name }}
+                                    </td>
+                                    <td class="theme-text-dark px-3 py-2">
+                                        {{ row.alleles?.join(', ') || '—' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div v-if="canEdit" class="mt-2 flex justify-end">
+                            <button
+                                type="button"
+                                class="theme-text-dark hover:theme-text theme-border flex cursor-pointer items-center gap-1 rounded-md border px-4 py-2 text-sm font-medium"
+                                aria-label="Add pheno to this grouping"
+                                @click="addPheno(sectionIndex)"
+                            >
+                                <Plus class="size-3" />
+                                Add pheno
+                            </button>
+                        </div>
+                    </div>
+                </template>
                 <div
                     v-if="canEdit"
                     class="mt-3 flex flex-wrap items-center justify-end gap-2"
@@ -887,11 +1042,11 @@ function doRoll(): void {
                     <button
                         type="button"
                         class="theme-text-dark hover:theme-text theme-border flex cursor-pointer items-center gap-1 rounded-md border px-4 py-2 text-sm font-medium"
-                        aria-label="Add pheno"
-                        @click="addPheno"
+                        aria-label="Add grouping"
+                        @click="addSection"
                     >
                         <Plus class="size-3" />
-                        Add pheno
+                        Add grouping
                     </button>
                     <button
                         type="button"

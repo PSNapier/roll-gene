@@ -29,8 +29,13 @@ class UpdateRollerRequest extends FormRequest
             'phenoDict' => ['sometimes', 'array'],
             'phenoDict.*' => ['required', 'array'],
             'phenoDict.*.name' => ['required', 'string', 'max:255'],
-            'phenoDict.*.alleles' => ['required', 'array', 'min:1'],
-            'phenoDict.*.alleles.*' => ['required', 'string', 'max:64'],
+            'phenoDict.*.match_mode' => ['sometimes', 'string', 'max:64'],
+            'phenoDict.*.phenos' => ['required', 'array'],
+            'phenoDict.*.phenos.*' => ['required', 'array'],
+            'phenoDict.*.phenos.*.name' => ['required', 'string', 'max:255'],
+            'phenoDict.*.phenos.*.alleles' => ['required', 'array', 'min:1'],
+            'phenoDict.*.phenos.*.alleles.*' => ['required', 'string', 'max:64'],
+            'phenoDict.*.phenos.*.locus_first' => ['sometimes', 'boolean'],
         ];
     }
 
