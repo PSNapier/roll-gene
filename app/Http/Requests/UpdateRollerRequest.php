@@ -21,16 +21,16 @@ class UpdateRollerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'dictionary' => ['sometimes', 'required', 'array'],
-            'dictionary.*' => ['required', 'array'],
-            'dictionary.*.oddsType' => ['required', Rule::in(['punnett', 'percentage'])],
-            'dictionary.*.alleles' => ['required', 'array', 'min:1'],
-            'dictionary.*.alleles.*' => ['required', 'string', 'max:64'],
-            'phenos' => ['sometimes', 'array'],
-            'phenos.*' => ['required', 'array'],
-            'phenos.*.name' => ['required', 'string', 'max:255'],
-            'phenos.*.alleles' => ['required', 'array', 'min:1'],
-            'phenos.*.alleles.*' => ['required', 'string', 'max:64'],
+            'genesDict' => ['sometimes', 'required', 'array'],
+            'genesDict.*' => ['required', 'array'],
+            'genesDict.*.oddsType' => ['required', Rule::in(['punnett', 'percentage'])],
+            'genesDict.*.alleles' => ['required', 'array', 'min:1'],
+            'genesDict.*.alleles.*' => ['required', 'string', 'max:64'],
+            'phenoDict' => ['sometimes', 'array'],
+            'phenoDict.*' => ['required', 'array'],
+            'phenoDict.*.name' => ['required', 'string', 'max:255'],
+            'phenoDict.*.alleles' => ['required', 'array', 'min:1'],
+            'phenoDict.*.alleles.*' => ['required', 'string', 'max:64'],
         ];
     }
 
@@ -40,15 +40,15 @@ class UpdateRollerRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
-            $dict = $this->input('dictionary', []);
-            if (! is_array($dict)) {
+            $genesDict = $this->input('genesDict', []);
+            if (! is_array($genesDict)) {
                 return;
             }
-            foreach ($dict as $geneName => $entry) {
+            foreach ($genesDict as $geneName => $entry) {
                 $alleles = $entry['alleles'] ?? [];
                 if (($entry['oddsType'] ?? '') === 'percentage' && count($alleles) !== 1) {
                     $validator->errors()->add(
-                        "dictionary.{$geneName}.alleles",
+                        "genesDict.{$geneName}.alleles",
                         'Percentage genes must have exactly one allele.',
                     );
                 }

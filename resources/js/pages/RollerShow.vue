@@ -22,11 +22,11 @@ interface GeneEntry {
 }
 
 interface GeneticsData {
-    odds: {
+    oddsDict: {
         punnett: Record<string, number>;
         percentage: Record<string, Record<string, number>>;
     };
-    dict: Record<string, GeneEntry>;
+    genesDict: Record<string, GeneEntry>;
 }
 
 interface BreedingOutcome {
@@ -50,7 +50,7 @@ interface PhenoEntry {
 const props = defineProps<{
     roller: RollerInfo;
     genetics: GeneticsData;
-    phenos?: PhenoEntry[];
+    phenoDict?: PhenoEntry[];
     canEdit?: boolean;
     outcomes?: BreedingOutcome[];
     errors?: Record<string, string>;
@@ -61,11 +61,11 @@ const editGenes = ref<EditGeneRow[]>([]);
 let nextGeneId = 0;
 
 function syncEditGenesFromProps(): void {
-    const dict = JSON.parse(JSON.stringify(props.genetics.dict)) as Record<
+    const genesDict = JSON.parse(JSON.stringify(props.genetics.genesDict)) as Record<
         string,
         GeneEntry
     >;
-    editGenes.value = Object.entries(dict).map(([name, entry]) => ({
+    editGenes.value = Object.entries(genesDict).map(([name, entry]) => ({
         id: nextGeneId++,
         name,
         entry,
@@ -74,7 +74,7 @@ function syncEditGenesFromProps(): void {
 
 onMounted(syncEditGenesFromProps);
 watch(
-    () => props.genetics.dict,
+    () => props.genetics.genesDict,
     () => syncEditGenesFromProps(),
     { deep: true },
 );
@@ -142,7 +142,7 @@ const editPhenos = ref<EditPhenoRow[]>([]);
 let nextPhenoId = 0;
 
 function syncEditPhenosFromProps(): void {
-    const list = (props.phenos ?? []) as PhenoEntry[];
+    const list = (props.phenoDict ?? []) as PhenoEntry[];
     editPhenos.value = list.map((p) => ({
         id: nextPhenoId++,
         name: p.name,
@@ -152,7 +152,7 @@ function syncEditPhenosFromProps(): void {
 
 onMounted(syncEditPhenosFromProps);
 watch(
-    () => props.phenos,
+    () => props.phenoDict,
     () => syncEditPhenosFromProps(),
     { deep: true },
 );
@@ -199,7 +199,7 @@ function savePhenos(): void {
     savingPhenos.value = true;
     router.patch(
         rollerUpdate.url({ roller: props.roller.slug }),
-        { phenos: list } as unknown as RequestPayload,
+        { phenoDict: list } as unknown as RequestPayload,
         {
             preserveScroll: true,
             onFinish: () => {
@@ -212,7 +212,7 @@ function savePhenos(): void {
 const phenosTableRows = computed(() =>
     props.canEdit
         ? editPhenos.value
-        : (props.phenos ?? []).map((p: PhenoEntry, i: number) => ({
+        : (props.phenoDict ?? []).map((p: PhenoEntry, i: number) => ({
               id: i,
               name: p.name,
               alleles: p.alleles ?? [],
@@ -236,7 +236,7 @@ function saveDict(): void {
     savingDict.value = true;
     router.patch(
         rollerUpdate.url({ roller: props.roller.slug }),
-        { dictionary: dict } as unknown as RequestPayload,
+        { genesDict: dict } as unknown as RequestPayload,
         {
             preserveScroll: true,
             onFinish: () => {
@@ -251,7 +251,7 @@ const genesTableRows = computed(() => {
     if (props.canEdit) {
         return editGenes.value;
     }
-    return Object.entries(props.genetics.dict).map(([name, entry]) => ({
+    return Object.entries(props.genetics.genesDict).map(([name, entry]) => ({
         id: name,
         name,
         entry,
@@ -301,7 +301,7 @@ const sireGenes = computed(() => parseGeneString(sireGenesRaw.value));
 const damGenes = computed(() => parseGeneString(damGenesRaw.value));
 
 const currentDict = computed(() =>
-    props.canEdit ? computedDict.value : props.genetics.dict,
+    props.canEdit ? computedDict.value : props.genetics.genesDict,
 );
 const geneNames = computed(() => Object.keys(currentDict.value));
 
@@ -380,11 +380,9 @@ const canRoll = computed(() => !rolling.value && !hasValidationWarnings.value);
  * token is in the pheno's allowed-alleles list (e.g. Ee, EE, AA, Aa matches Ee Aa or EE Aa).
  */
 function getMatchingPhenos(genotype: string[]): string[] {
-    const phenos = props.phenos ?? [];
+    const phenos = props.phenoDict ?? [];
     const allowedSet = (alleles: string[]) =>
-        new Set(
-            (alleles ?? []).filter(Boolean).map((a) => a.trim()),
-        );
+        new Set((alleles ?? []).filter(Boolean).map((a) => a.trim()));
     for (const p of phenos) {
         const set = allowedSet(p.alleles);
         if (set.size === 0) continue;
@@ -436,7 +434,7 @@ function doRoll(): void {
                     Parent genes
                 </h2>
                 <p class="theme-text-dark mb-3 text-sm">
-                    One value per gene (same order as dictionary). Use slashes,
+                    One value per gene (same order as genesDict). Use slashes,
                     spaces, or commas: ee/aa/nZ, ee aa nZ, or ee, aa, nZ.
                 </p>
                 <div
@@ -820,9 +818,13 @@ function doRoll(): void {
                             </td>
                             <td class="px-3 py-2">
                                 <template v-if="canEdit">
-                                    <div class="flex flex-wrap items-center gap-1.5">
+                                    <div
+                                        class="flex flex-wrap items-center gap-1.5"
+                                    >
                                         <template
-                                            v-for="(allele, aIdx) in row.alleles"
+                                            v-for="(
+                                                allele, aIdx
+                                            ) in row.alleles"
                                             :key="aIdx"
                                         >
                                             <div
@@ -838,7 +840,10 @@ function doRoll(): void {
                                                 v-if="row.alleles.length > 1"
                                                 type="button"
                                                 class="theme-text-dark hover:theme-text cursor-pointer rounded p-1"
-                                                :aria-label="'Remove allele ' + (aIdx + 1)"
+                                                :aria-label="
+                                                    'Remove allele ' +
+                                                    (aIdx + 1)
+                                                "
                                                 @click="
                                                     removePhenoAllele(i, aIdx)
                                                 "
@@ -904,7 +909,7 @@ function doRoll(): void {
                     Roll Odds
                 </h2>
                 <pre class="theme-text overflow-x-auto text-sm">{{
-                    JSON.stringify(props.genetics.odds, null, 2)
+                    JSON.stringify(props.genetics.oddsDict, null, 2)
                 }}</pre>
             </section>
         </div>

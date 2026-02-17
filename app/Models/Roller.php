@@ -16,8 +16,8 @@ class Roller extends Model
         'name',
         'slug',
         'is_core',
-        'dictionary',
-        'phenos',
+        'genes_dict',
+        'pheno_dict',
         'punnett_odds',
         'percentage_odds',
         'visibility',
@@ -28,8 +28,8 @@ class Roller extends Model
     {
         return [
             'is_core' => 'boolean',
-            'dictionary' => 'array',
-            'phenos' => 'array',
+            'genes_dict' => 'array',
+            'pheno_dict' => 'array',
             'punnett_odds' => 'array',
             'percentage_odds' => 'array',
         ];
@@ -67,16 +67,41 @@ class Roller extends Model
     }
 
     /**
-     * @return array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}
+     * Normalize phenos to sectioned format. Legacy flat list becomes one section.
+     *
+     * @return array<int, array{name: string, match_mode: string, phenos: array<int, array{name: string, alleles: array<string>}>}>
+     */
+    public function getPhenoSections(): array
+    {
+        $phenoDict = $this->pheno_dict ?? [];
+        if (empty($phenoDict)) {
+            return [];
+        }
+        $first = $phenoDict[0] ?? null;
+        if (is_array($first) && ! isset($first['match_mode']) && isset($first['name'], $first['alleles'])) {
+            return [
+                [
+                    'name' => 'Base',
+                    'match_mode' => 'first_dominant',
+                    'phenos' => $phenoDict,
+                ],
+            ];
+        }
+
+        return $phenoDict;
+    }
+
+    /**
+     * @return array{oddsDict: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, genesDict: array<string, array{oddsType: string, alleles: array<string>}>}
      */
     public function toGeneticsArray(): array
     {
         return [
-            'odds' => [
+            'oddsDict' => [
                 'punnett' => $this->punnett_odds ?? [],
                 'percentage' => $this->percentage_odds ?? [],
             ],
-            'dict' => $this->dictionary ?? [],
+            'genesDict' => $this->genes_dict ?? [],
         ];
     }
 }

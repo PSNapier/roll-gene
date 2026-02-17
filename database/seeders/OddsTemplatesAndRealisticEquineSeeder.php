@@ -45,7 +45,7 @@ class OddsTemplatesAndRealisticEquineSeeder extends Seeder
                 'user_id' => null,
                 'name' => 'Realistic Equine',
                 'is_core' => true,
-                'dictionary' => [
+                'genes_dict' => [
                     'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
                     'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
                     'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],

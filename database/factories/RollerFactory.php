@@ -27,7 +27,7 @@ class RollerFactory extends Factory
             'name' => $name,
             'slug' => $slug,
             'is_core' => false,
-            'dictionary' => [
+            'genes_dict' => [
                 'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
                 'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
                 'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],

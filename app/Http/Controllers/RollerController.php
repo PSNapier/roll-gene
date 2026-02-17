@@ -45,7 +45,7 @@ class RollerController extends Controller
                 'is_core' => $roller->is_core,
             ],
             'genetics' => $genetics,
-            'phenos' => $roller->phenos ?? [],
+            'phenoDict' => $roller->pheno_dict ?? [],
             'canEdit' => $canEdit,
             'outcomes' => $request->session()->get('roller_outcomes'),
         ]);
@@ -56,17 +56,17 @@ class RollerController extends Controller
         $this->authorize('update', $roller);
 
         $payload = [];
-        if ($request->has('dictionary')) {
-            $payload['dictionary'] = $request->validated('dictionary');
+        if ($request->has('genesDict')) {
+            $payload['genes_dict'] = $request->validated('genesDict');
         }
-        if ($request->has('phenos')) {
-            $payload['phenos'] = $request->validated('phenos');
+        if ($request->has('phenoDict')) {
+            $payload['pheno_dict'] = $request->validated('phenoDict');
         }
         $roller->update($payload);
 
         $message = match (true) {
-            isset($payload['dictionary'], $payload['phenos']) => 'Genes and phenos updated.',
-            isset($payload['phenos']) => 'Phenos updated.',
+            isset($payload['genes_dict'], $payload['pheno_dict']) => 'Genes and phenos updated.',
+            isset($payload['pheno_dict']) => 'Phenos updated.',
             default => 'Genes updated.',
         };
 
@@ -85,10 +85,10 @@ class RollerController extends Controller
 
         $sireTokens = $this->parseGeneString($validated['sire_genes']);
         $damTokens = $this->parseGeneString($validated['dam_genes']);
-        $dict = $roller->dictionary ?? [];
+        $genesDict = $roller->genes_dict ?? [];
 
         try {
-            $sire = $this->geneticsService->tokensToOrderedGenes($sireTokens, $dict);
+            $sire = $this->geneticsService->tokensToOrderedGenes($sireTokens, $genesDict);
         } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
                 'sire_genes' => [$e->getMessage()],
@@ -96,7 +96,7 @@ class RollerController extends Controller
         }
 
         try {
-            $dam = $this->geneticsService->tokensToOrderedGenes($damTokens, $dict);
+            $dam = $this->geneticsService->tokensToOrderedGenes($damTokens, $genesDict);
         } catch (\InvalidArgumentException $e) {
             throw ValidationException::withMessages([
                 'dam_genes' => [$e->getMessage()],

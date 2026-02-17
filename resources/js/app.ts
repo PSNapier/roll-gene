@@ -4,7 +4,7 @@ import type { DefineComponent } from 'vue';
 import { createApp, h } from 'vue';
 import '../css/app.css';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = 'Roll Generator';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

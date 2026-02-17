@@ -14,12 +14,12 @@ test('admin can update any roller', function () {
     ];
 
     $response = $this->actingAs($admin)->patch(route('rollers.update', $roller), [
-        'dictionary' => $newDict,
+        'genesDict' => $newDict,
     ]);
 
     $response->assertRedirect(route('rollers.show', $roller));
     $roller->refresh();
-    expect($roller->dictionary)->toBe($newDict);
+    expect($roller->genes_dict)->toBe($newDict);
 });
 
 test('owner can update their own non-core roller', function () {
@@ -30,19 +30,19 @@ test('owner can update their own non-core roller', function () {
     ];
 
     $response = $this->actingAs($user)->patch(route('rollers.update', $roller), [
-        'dictionary' => $newDict,
+        'genesDict' => $newDict,
     ]);
 
     $response->assertRedirect(route('rollers.show', $roller));
     $roller->refresh();
-    expect($roller->dictionary)->toBe($newDict);
+    expect($roller->genes_dict)->toBe($newDict);
 });
 
 test('guest cannot update roller', function () {
     $roller = Roller::factory()->create(['is_core' => false]);
 
     $response = $this->patch(route('rollers.update', $roller), [
-        'dictionary' => $roller->dictionary,
+        'genesDict' => $roller->genes_dict,
     ]);
 
     $response->assertForbidden();
@@ -54,7 +54,7 @@ test('non-owner cannot update another users roller', function () {
     $roller = Roller::factory()->create(['user_id' => $owner->id, 'is_core' => false]);
 
     $response = $this->actingAs($other)->patch(route('rollers.update', $roller), [
-        'dictionary' => ['x' => ['oddsType' => 'punnett', 'alleles' => ['A', 'a']]],
+        'genesDict' => ['x' => ['oddsType' => 'punnett', 'alleles' => ['A', 'a']]],
     ]);
 
     $response->assertForbidden();
@@ -91,18 +91,18 @@ test('owner can update phenos only', function () {
     ];
 
     $response = $this->actingAs($user)->patch(route('rollers.update', $roller), [
-        'phenos' => $phenos,
+        'phenoDict' => $phenos,
     ]);
 
     $response->assertRedirect(route('rollers.show', $roller));
     $roller->refresh();
-    expect($roller->phenos)->toBe($phenos);
+    expect($roller->pheno_dict)->toBe($phenos);
 });
 
-test('show passes phenos to RollerShow', function () {
+test('show passes phenoDict to RollerShow', function () {
     $roller = Roller::factory()->create([
         'visibility' => 'public',
-        'phenos' => [['name' => 'bay', 'alleles' => ['A']]],
+        'pheno_dict' => [['name' => 'bay', 'alleles' => ['A']]],
     ]);
 
     $response = $this->get(route('rollers.show', $roller));
@@ -110,6 +110,6 @@ test('show passes phenos to RollerShow', function () {
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
         ->component('RollerShow')
-        ->has('phenos')
-        ->where('phenos', [['name' => 'bay', 'alleles' => ['A']]]));
+        ->has('phenoDict')
+        ->where('phenoDict', [['name' => 'bay', 'alleles' => ['A']]]));
 });

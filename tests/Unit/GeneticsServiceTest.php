@@ -9,12 +9,12 @@ beforeEach(function () {
 function baseEquineGenetics(): array
 {
     return [
-        'dict' => [
+        'genesDict' => [
             'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
             'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
             'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
         ],
-        'odds' => [
+        'oddsDict' => [
             'punnett' => ['roll1' => 25, 'roll2' => 25, 'roll3' => 25, 'roll4' => 25],
             'percentage' => [
                 'domXdom' => ['dom' => 100],
@@ -169,8 +169,8 @@ test('getBreedingOutcomes genotype entries are in dictionary order', function ()
 
     expect($result)->not->toBeEmpty();
     $first = $result[0];
-    $dict = $genetics['dict'];
-    expect($first['genotype'])->toHaveCount(count($dict));
+    $genesDict = $genetics['genesDict'];
+    expect($first['genotype'])->toHaveCount(count($genesDict));
 });
 
 test('getBreedingOutcomes includes percentage-type genes and respects percentage odds', function () {
@@ -197,11 +197,11 @@ test('getBreedingOutcomes includes percentage-type genes and respects percentage
 test('tokensToOrderedGenes assigns by validity so input order does not matter', function () {
     $tokens = ['aa', 'ee'];
     $genetics = baseEquineGenetics();
-    $dict = $genetics['dict'];
+    $genesDict = $genetics['genesDict'];
 
-    $ordered = $this->service->tokensToOrderedGenes($tokens, $dict);
+    $ordered = $this->service->tokensToOrderedGenes($tokens, $genesDict);
 
-    $geneNames = array_keys($dict);
+    $geneNames = array_keys($genesDict);
     expect($ordered)->toHaveCount(count($geneNames));
     expect($ordered[0])->toBe('ee');
     expect($ordered[1])->toBe('aa');
@@ -211,14 +211,14 @@ test('tokensToOrderedGenes assigns percentage gene token to correct slot', funct
     $tokens = ['aa', 'ee', 'nZ'];
     $genetics = baseEquineGenetics();
 
-    $ordered = $this->service->tokensToOrderedGenes($tokens, $genetics['dict']);
+    $ordered = $this->service->tokensToOrderedGenes($tokens, $genetics['genesDict']);
 
     expect($ordered[2])->toBe('nZ');
 });
 
 test('tokensToOrderedGenes throws when not enough tokens', function () {
     $genetics = baseEquineGenetics();
-    $this->service->tokensToOrderedGenes(['ee'], $genetics['dict']);
+    $this->service->tokensToOrderedGenes(['ee'], $genetics['genesDict']);
 })->throws(InvalidArgumentException::class);
 
 test('getBreedingOutcomes includes all genes in dict when Punnett gene has empty parent', function () {
@@ -229,9 +229,9 @@ test('getBreedingOutcomes includes all genes in dict when Punnett gene has empty
     $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
 
     expect($result)->not->toBeEmpty();
-    $dict = $genetics['dict'];
+    $genesDict = $genetics['genesDict'];
     foreach ($result as $row) {
-        expect($row['genotype'])->toHaveCount(count($dict));
+        expect($row['genotype'])->toHaveCount(count($genesDict));
     }
     $totalPct = array_sum(array_column($result, 'probability'));
     expect(round($totalPct, 10))->toBe(1.0);
@@ -239,13 +239,13 @@ test('getBreedingOutcomes includes all genes in dict when Punnett gene has empty
 
 test('getBreedingOutcomes with extended dict returns one genotype entry per gene', function () {
     $genetics = [
-        'dict' => [
+        'genesDict' => [
             'black' => ['oddsType' => 'punnett', 'alleles' => ['E', 'e']],
             'agouti' => ['oddsType' => 'punnett', 'alleles' => ['At', 'A', 'a']],
             'dun' => ['oddsType' => 'punnett', 'alleles' => ['D', 'd']],
             'silver' => ['oddsType' => 'percentage', 'alleles' => ['Z']],
         ],
-        'odds' => baseEquineGenetics()['odds'],
+        'oddsDict' => baseEquineGenetics()['oddsDict'],
     ];
     $sire = ['Ee', 'Aa', 'Dd', 'nZ'];
     $dam = ['ee', 'aa', 'Dd', 'ZZ'];
@@ -253,7 +253,7 @@ test('getBreedingOutcomes with extended dict returns one genotype entry per gene
     $result = $this->service->getBreedingOutcomes($sire, $dam, $genetics);
 
     expect($result)->not->toBeEmpty();
-    $geneCount = count($genetics['dict']);
+    $geneCount = count($genetics['genesDict']);
     foreach ($result as $row) {
         expect($row['genotype'])->toHaveCount($geneCount);
     }

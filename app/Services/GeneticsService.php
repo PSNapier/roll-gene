@@ -53,9 +53,9 @@ class GeneticsService
     }
 
     /**
-     * Genetics data (odds + dict) for a roller.
+     * Genetics data (oddsDict + genesDict) for a roller.
      *
-     * @return array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}
+     * @return array{oddsDict: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, genesDict: array<string, array{oddsType: string, alleles: array<string>}>}
      */
     public function getDictionaryForRoller(Roller $roller): array
     {
@@ -325,14 +325,14 @@ class GeneticsService
      *
      * @param  array<string>  $sireGenes  One genotype per gene, in same order as dictionary keys (e.g. ['Ee', 'Aa', 'nZ']).
      * @param  array<string>  $damGenes
-     * @param  array{odds: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, dict: array<string, array{oddsType: string, alleles: array<string>}>}  $genetics  From Roller::toGeneticsArray()
+     * @param  array{oddsDict: array{punnett: array<string, int>, percentage: array<string, array<string, int>>}, genesDict: array<string, array{oddsType: string, alleles: array<string>}>}  $genetics  From Roller::toGeneticsArray()
      * @return array<int, array{genotype: list<string>, probability: float, percentage: string}>
      */
     public function getBreedingOutcomes(array $sireGenes, array $damGenes, array $genetics): array
     {
-        $dict = $genetics['dict'];
-        $punnettOdds = $genetics['odds']['punnett'];
-        $percentageOdds = $genetics['odds']['percentage'];
+        $dict = $genetics['genesDict'];
+        $punnettOdds = $genetics['oddsDict']['punnett'];
+        $percentageOdds = $genetics['oddsDict']['percentage'];
         $geneNames = array_keys($dict);
 
         $perGeneOutcomes = [];
