@@ -21,7 +21,7 @@ function baseEquineGenetics(): array
                 'domXrec' => ['dom' => 100],
                 'domXnone' => ['rec' => 50],
                 'recXrec' => ['dom' => 50, 'rec' => 50],
-                'recXnone' => ['rec' => 50],
+                'recXnone' => ['rec' => 50, 'none' => 50],
                 'noneXnone' => ['none' => 100],
             ],
         ],
@@ -125,6 +125,19 @@ test('getPercentageOutcomesForGene uses reverse key when direct key missing', fu
     expect($sireNoneDamRec)->toHaveCount(1);
     expect($sireNoneDamRec[0]['genotype'])->toBe('nZ');
     expect($sireNoneDamRec[0]['probability'])->toBe(1.0);
+});
+
+test('getPercentageOutcomesForGene recXnone with rec and none bands gives 50% each', function () {
+    $odds = ['recXnone' => ['rec' => 50, 'none' => 50]];
+    $outcomes = $this->service->getPercentageOutcomesForGene('none', 'rec', ['Cr'], $odds);
+
+    expect($outcomes)->toHaveCount(2);
+    $byGenotype = [];
+    foreach ($outcomes as $o) {
+        $byGenotype[$o['genotype']] = $o['probability'];
+    }
+    expect($byGenotype['nCr'] ?? 0)->toBe(0.5);
+    expect($byGenotype[''] ?? 0)->toBe(0.5);
 });
 
 test('getPunnettOutcomesForGene respects custom odds', function () {

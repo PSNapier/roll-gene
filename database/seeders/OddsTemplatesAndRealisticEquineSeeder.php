@@ -30,7 +30,7 @@ class OddsTemplatesAndRealisticEquineSeeder extends Seeder
                     'domXrec' => ['dom' => 100],
                     'domXnone' => ['rec' => 50],
                     'recXrec' => ['dom' => 50, 'rec' => 50],
-                    'recXnone' => ['rec' => 50],
+                    'recXnone' => ['rec' => 50, 'none' => 50],
                     'noneXnone' => ['none' => 100],
                 ],
             ]
